@@ -1,0 +1,1031 @@
+openapi: 3.0.0
+info:
+  title: 敏捷开发工具
+  description: |
+    地理可视化平台（L7VP）的地图控制接口，供智能体代替用户在浏览器页面上「看图层、查目标、控地图」。
+
+    主要功能：数据探索、图表部署、多图看板、截图导出。
+
+    ## 两条腿（务必先理解，否则会误判失败）
+
+    1. **查询腿（同步返回）**
+       - `list_projects` — 项目名 → 项目 ID（**一切调用的入口**：其余接口都要 projectId）
+       - `inspect_project` — 读项目的图层清单与数据集清单（图层 id / 名称 / 绑定的数据集 / 保存时的显隐）
+       - `query_targets` — 按编号或名称查流式目标的最新位置
+       - `query_targets_in_region` — 查某个区域（矩形）内**此刻**有哪些目标，可只数个数
+       - `list_regions` — 区域名 → 包围盒（如「渤海」「第一岛链」）
+
+    2. **控制腿（异步：下发 → 浏览器执行 → 回执）**
+       地图场景对象只活在**浏览器内存**里，HTTP 请求只能由浏览器发起，方向反不过来。
+       所以控制指令是「入队 + 浏览器长轮询取令执行 + 回写回执」：
+
+       ```
+       send_map_command  →  {cmdId, status:"queued"}
+              ↓  （浏览器页面上打开了「接入智能体」开关时才会取令执行）
+       get_command_result  →  {status:"done", result:{ok:true|false, ...}}
+       ```
+
+    ## 使用要点
+
+    - **不知道 `projectId` 就先调 `list_projects`**（用户只说得出项目名称）。
+    - **必须先 `inspect_project` 拿到 `projectId` 对应的 `layerId` / `datasetId`**，再下发 `layer.visibility`
+      或调用 `query_targets`。用户只会说「隐藏船舶实时」，不会说 `layer_abc`。
+    - **要动的是「全部图层」时，用批量形态而不是逐层下发**：`layer.visibility` 传
+      `{scope:"all", visible}`，或「只看某几个」用 `layer.isolate`。批量形态**默认保留瓦片底图**
+      （`keepTiles` 默认 true），避免把底图也关掉、只剩空白画布。
+    - **图层互相盖住（尤其是两个图标图层）时**用 `layer.bringToFront` / `layer.sendToBack`：
+      只有「提到最上层 / 压到最下层」两个动作，没有完整排序，也没有「放在 XX 图层之上」这种相对定位。
+      **编辑器图层面板里拖动图标图层是无效的**（复合图层不走 zIndex 属性），这类诉求只能用这两条指令。
+    - **下发控制指令后，用 `send_map_command` 的 `wait=true`（推荐）或 `get_command_result` 确认结果**，
+      不要假定成功。`status:"queued"` 长时间不变 = 页面上没有开启「接入智能体」开关。
+    - **两类指令，落点不同（务必分清）**：
+      - **运行时指令**（`layer.visibility` / `layer.isolate` / `layer.bringToFront` / `layer.sendToBack` /
+        `map.focus` / `map.reset` / `target.select`）：**只改浏览器里的视图，刷新即恢复，不碰用户的项目**。
+        在任意挂了「智能体桥」的页面上都能执行（含 Share 嵌入页）。
+      - **配置指令**（`dataset.create` / `layer.update`）：**会真的写入用户的项目**（落库）。
+        **只在 Builder 页（/builder/{projectId}）执行**，且用户必须先在该页打开「接入智能体」开关。
+        在别的页面下发，它会一直 `queued`。
+    - **建图层用两步，不要想一步到位**（没有 `layer.create`）：
+      1. `dataset.create` 建数据集 —— **产品会自己按列名推断出图层**（你只要描述「数据是什么」，
+         不用描述「图层长什么样」）；
+      2. 用回执里的 `layers[].layerId` 调 `layer.update` 改名字 / 显隐 / 样式 / 可视化类型。
+      **经纬度列务必用 `lng`/`lat`（或 `lon`/`lat`、`longitude`/`latitude`、`jd`/`wd`）且 `type:"number"`**，
+      否则推断不出坐标配对：数据集建得成，但**不会生成图层**（回执里给 `warning`，不是报错）。
+      回执 `layers` 为空或带 `warning` 时，**让用户看页面确认，不要重发**（重发会建出重复的数据集）。
+    - **下发配置指令前先向用户说明会写入什么**（数据集名、行数、图层会改哪几项）——它不是「看一下」，是真的改项目。
+    - **删除图层仍不支持**：未提供 `layer.clear`，用户要删图层请他去编辑器里操作。
+  version: 1.4.0
+servers:
+  # ⚠️ 导入 Dify 前请改成实际部署地址；纯内网 IP、端口 3001（见 doc/AGENT_MAP_CONTROL_DIFY_TOOL.md）
+  # 注意端口是 3001（java-server 的 server.port），不是 3002/3003（那两个是 WebSocket 与其它用途）。
+  - url: http://192.168.10.128:3001
+tags:
+  - name: 数据探索
+    description: 只读查询：项目检索、项目图层与数据集清单、流式目标位置、区域筛选目标、语义区域字典
+  - name: 地图控制
+    description: 向浏览器页面下发地图指令（图层显隐 / 只看某几层 / 图层提到最上或压到最下 / 视野聚焦 / 选中目标 / **创建图层**）
+  - name: 指令通道
+    description: 长轮询取令与回执读取。仅调试与排障用，正常业务流程走「地图控制」
+
+paths:
+  # 注意：本路径**不带 projectId** —— 它正是用来问 projectId 的入口，
+  # 不能要求调用方先有 projectId。全平台唯一一个不在 /api/projects/{projectId} 下的接口。
+  /api/agent/projects:
+    get:
+      tags:
+        - 数据探索
+      summary: 查询项目 ID（项目名 → projectId）
+      description: |
+        【功能 06 · 查询腿】**一切调用的起点**：其余接口都要 `projectId`，而用户通常只说得出项目名称。
+
+        按项目名**模糊检索**（双向包含、大小写不敏感）。不传 `q` 时返回按更新时间倒序的前 `limit` 个项目。
+
+        **返回条目只含轻量字段**（`projectId`/`projectName`/`description`/`updateTime`），
+        不含体量很大的地图配置——需要图层与数据集清单时再调 `inspect_project`。
+
+        - `rowCount == 0` = 没有匹配的项目，**不是错误**（仍返回 200，不要重试）。
+        - **返回多条时必须列出来让用户选**，不要猜哪一个。
+      operationId: list_projects
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: 项目名关键词（支持部分包含，如「船舶」「监控」）。不传 = 按更新时间取前 limit 个。
+          schema:
+            type: string
+            example: "船舶"
+        - name: limit
+          in: query
+          required: false
+          description: 最多返回条数，1~200，默认 50。
+          schema:
+            type: integer
+            default: 50
+            example: 20
+      responses:
+        '200':
+          description: 命中的项目（未命中时 projects 为空数组、rowCount 为 0）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        projectId:
+                          type: string
+                          description: 后续所有接口都要用的项目 ID
+                        projectName:
+                          type: string
+                        description:
+                          type: string
+                          nullable: true
+                        updateTime:
+                          type: string
+                          nullable: true
+                  rowCount:
+                    type: integer
+
+  /api/projects/{projectId}:
+    get:
+      tags:
+        - 数据探索
+      summary: 查询项目图层与数据集清单
+      description: |
+        【功能 01 · 先调这个】
+
+        ⚠️ 若还不知道 `projectId`，先调 `list_projects`（用户只说得出项目名称）。
+
+        返回项目的全部配置，智能体真正要读的是其中的 `spec.layers`（图层清单）和 `datasets`（数据集清单）：
+
+        - `spec.layers[].id` — 图层的 **layerId**，`layer.visibility` 指令要用它
+        - `spec.layers[].name` — 图层显示名（中文），用户说的就是这个名字
+        - `spec.layers[].type` — 图层类型（BubbleLayer / IconLayer / LineLayer / ClusterLayer …）
+        - `spec.layers[].dataset` 或 `spec.layers[].sourceConfig.datasetId` — 绑定的数据集 id
+        - `spec.layers[].visConfig.visible` — 显隐状态（**上次保存值**，不是运行时真值，见下）
+        - `datasets[].id` / `.name` / `.type`
+        - `datasets[].metadata.stream` — 是否流式数据集（只有 `true` 才能 `query_targets`）
+        - `datasets[].metadata.streamKey` — 目标标识字段名（船通常是 `mmsi`，飞机是 `flight`/`hex`）
+        - `datasets[].columns[]` — 列定义，用于判断 `query_targets` 的 `field` 该填什么
+
+        **注意**：`visConfig.visible` 是**上次在编辑器里保存的值**。用命令通道隐藏图层只改浏览器内存、不落库，
+        所以这里读到的可能与用户眼前所见不一致。要确认当前实际状态，以控制指令的**回执**为准。
+      operationId: inspect_project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 项目 ID。用户在平台上打开某个地图项目时 URL 形如 `/builder/{projectId}`，可直接引用该值。
+          schema:
+            type: string
+            example: "79f3431e"
+      responses:
+        '200':
+          description: 项目配置（完整 application JSON）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datasets:
+                    type: array
+                    description: 数据集清单
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        type:
+                          type: string
+                        metadata:
+                          type: object
+                          description: 流式数据集的关键配置（stream / streamKey / kafka）
+                          additionalProperties: true
+                        columns:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                  spec:
+                    type: object
+                    properties:
+                      layers:
+                        type: array
+                        description: 图层清单
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              description: layerId
+                            name:
+                              type: string
+                              description: 图层显示名
+                            type:
+                              type: string
+                            dataset:
+                              type: string
+                            visConfig:
+                              type: object
+                              description: 内含 visible
+                              additionalProperties: true
+                          additionalProperties: true
+                      map:
+                        type: object
+                        additionalProperties: true
+                additionalProperties: true
+        '404':
+          description: 项目不存在
+
+  /api/projects/{projectId}/agent/targets:
+    get:
+      tags:
+        - 数据探索
+      summary: 查询流式目标的最新位置
+      description: |
+        【功能 04 · 查询腿】一个接口两种模式，返回形状一致：
+
+        - **`key` 精确模式**（推荐，快）——按目标编号查。例：`key=245272000`。
+          默认匹配数据集 `metadata.streamKey` 字段。
+        - **`q` 模糊模式**——按名称片段查。例：`q=远洋`。**必须同时给 `field`**（填名称列的列名，
+          如 `name`；名称字段无法预设默认），且受 `windowMinutes` 时间窗限制。
+
+        `key` 与 `q` **二选一**，同时给会报 400。
+
+        先调 `inspect_project` 找到 `metadata.stream=true` 且带 `metadata.streamKey` 的数据集，
+        把它的 `id` 填到 `datasetId`。
+
+        **`windowMinutes` 是性能关键**：库里数据量大且「按 payload 字段过滤」无索引，
+        模糊模式必须靠时间窗把扫描范围压下来。默认 60 分钟。
+
+        ⚠️ **实测提醒**：Kafka 重放导致库内数据可能滞后数天，「近 1 小时」常常**查不到数据**。
+        查不到时（`rowCount:0`）先确认数据集的**实际数据时间窗**，再据此放大 `windowMinutes`
+        （如 3 天数据用 `windowMinutes=7200`）。若目标是在线实时目标，
+        更大的时间窗仍无结果说明该目标当前未在报。
+
+        **返回约定**：
+
+        - `rowCount == 0` = 未找到，**不是错误**（接口仍返回 200，不要重试）
+        - `rows[].key` = 该目标在 `streamKey` 字段上的**编号**（后续操作的凭据，与本次搜索字段无关），
+          数据集未配 `streamKey` 时为 `null`
+        - `rows[].payload` = 该目标最新一条报文的**完整**原始字段，可直接向用户展示
+        - 结果已按目标去重，每个目标只留最新一条
+        - `truncated: true` = 命中条数超过 `limit`，只返回了一部分
+        - **一次返回多条时必须列出让用户选，不要猜哪一个**
+      operationId: query_targets
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 项目 ID
+          schema:
+            type: string
+            example: "79f3431e"
+        - name: datasetId
+          in: query
+          required: true
+          description: 目标所在的数据集 id（必须来自 inspect_project，且 `metadata.stream=true`）
+          schema:
+            type: string
+            example: "ds_ship"
+        - name: key
+          in: query
+          required: false
+          description: 精确匹配值（目标编号，如 mmsi 号）。与 `q` 二选一。
+          schema:
+            type: string
+            example: "245272000"
+        - name: q
+          in: query
+          required: false
+          description: 模糊关键词（名称片段）。与 `key` 二选一，且**必须同时给 `field`**。
+          schema:
+            type: string
+            example: "远洋"
+        - name: field
+          in: query
+          required: false
+          description: |
+            匹配哪个 payload 字段。`key` 模式可省略（默认取数据集 metadata.streamKey）；
+            `q` 模式**必填**（如 `name`、`shipname`）。
+          schema:
+            type: string
+            example: "name"
+        - name: windowMinutes
+          in: query
+          required: false
+          description: 模糊模式的时间窗（分钟），默认 60。性能关键参数，见接口说明。
+          schema:
+            type: integer
+            default: 60
+            example: 7200
+        - name: limit
+          in: query
+          required: false
+          description: 模糊模式最多返回多少个目标，默认 20。
+          schema:
+            type: integer
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: 查询结果（未找到时 rowCount 为 0）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mode:
+                    type: string
+                    enum: [exact, fuzzy]
+                  field:
+                    type: string
+                    description: 本次实际匹配的字段名
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          nullable: true
+                          description: 目标标识（streamKey 字段上的值）
+                        lng:
+                          type: number
+                        lat:
+                          type: number
+                        eventTime:
+                          type: string
+                          description: 该报文时间（ISO-8601）
+                        payload:
+                          type: object
+                          description: 完整原始报文
+                          additionalProperties: true
+                  rowCount:
+                    type: integer
+                  truncated:
+                    type: boolean
+        '400':
+          description: 参数不合法（key/q 同时给或缺 field、数据集非流式、streamKey 缺失等）
+        '404':
+          description: 数据集不存在或不属于该项目
+        '503':
+          description: 服务端未配置时序库，无法查询
+
+  /api/projects/{projectId}/agent/targets/in-region:
+    get:
+      tags:
+        - 数据探索
+      summary: 查询某区域内的目标（区域筛选）
+      description: |
+        【功能 07 · 查询腿】回答「**这片海域里现在有哪些目标**」「有几条船」。
+
+        语义是**此刻**：先取每个目标的**最新一条报文**，再判断它是否落在给定矩形内。
+        ⚠️ **不是**「历史上进过这片区域的目标」——后者要扫全部历史点，本接口不做。
+
+        `region` 与 `bbox` **二选一**（同时给或都不给 → 400）：
+
+        - `region`——区域 key（如 `bohai`）或中文名/别名（如 `渤海`），服务端查的是与 `list_regions`
+          **同一本字典**，所以命中的是**字典里配好的矩形**。名字命中多个区域（如「海峡」）时会返回 400
+          并列出候选 key，让你自己选，**不猜**。
+        - `bbox`——自己给矩形，顺序固定 `minLng,minLat,maxLng,maxLat`（逗号分隔，如 `117,37,122.5,41`）。
+          字典里没有的区域（某锚地、某段航道）用这条。
+
+        **精度是矩形**：框内的陆地、邻区目标也会被算进来（已知过包含），不是缺陷。
+
+        **返回的行与 `query_targets` 完全同形**（`key`/`lng`/`lat`/`eventTime`/`payload`），
+        另带 `region` 字段回填区域 key。所以拿到 `rows[]` 后可以直接喂给 `target.select` 去聚焦某个目标。
+
+        只问数量时加 `countOnly=true`：`rows` 为空、`rowCount` 是命中目标数。
+
+        `truncated:true` 有两种成因（`scanned` 已达 `scanLimit`，或命中数超过 `limit`），
+        此时必须告诉用户结果不完整，可缩小 `windowMinutes`／区域，或调大 `limit`／`scanLimit` 后重试。
+
+        ⚠️ 与 `query_targets` 相同的实测提醒：库内数据可能滞后数天，
+        「近 1 小时」常常查不到数据——查不到时先确认实际数据时间窗，再放大 `windowMinutes`。
+      operationId: query_targets_in_region
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 项目 ID（先用 list_projects 拿）
+          schema:
+            type: string
+            example: "79f3431e"
+        - name: datasetId
+          in: query
+          required: true
+          description: 目标所在的流式数据集 id（来自 inspect_project，必须 `metadata.stream=true` 且配了 `metadata.streamKey`）
+          schema:
+            type: string
+            example: "ds_ship"
+        - name: region
+          in: query
+          required: false
+          description: 区域 key 或中文名/别名（如 `bohai` / `渤海`）。与 `bbox` 二选一。
+          schema:
+            type: string
+            example: "bohai"
+        - name: bbox
+          in: query
+          required: false
+          description: 矩形，`minLng,minLat,maxLng,maxLat` 逗号分隔。与 `region` 二选一。
+          schema:
+            type: string
+            example: "117.0,37.0,122.5,41.0"
+        - name: windowMinutes
+          in: query
+          required: false
+          description: 只取最近多少分钟的报文，1~10080，默认 60。**性能关键**，查不到时先放大它。
+          schema:
+            type: integer
+            default: 60
+            example: 720
+        - name: limit
+          in: query
+          required: false
+          description: 最多返回的目标数，1~2000，默认 200。
+          schema:
+            type: integer
+            default: 200
+            example: 50
+        - name: countOnly
+          in: query
+          required: false
+          description: 只数个数不返回明细。`true` 时 `rows` 为空、`rowCount` 仍为命中数。
+          schema:
+            type: boolean
+            default: false
+        - name: scanLimit
+          in: query
+          required: false
+          description: 最多扫描的原始报文行数，1~50000，默认 20000。命中 `scanLimit` 时 `truncated` 为 true。
+          schema:
+            type: integer
+            default: 20000
+      responses:
+        '200':
+          description: 区域内的目标（区域内没有目标时 rows 为空数组、rowCount 为 0）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filter:
+                    type: object
+                    description: 本次实际使用的筛选条件（region 模式下回显解析结果，bbox 模式下 regionKey/regionName 为 null）
+                    properties:
+                      region:
+                        type: string
+                        nullable: true
+                      regionKey:
+                        type: string
+                        nullable: true
+                      regionName:
+                        type: string
+                        nullable: true
+                      bbox:
+                        type: array
+                        items:
+                          type: number
+                        description: '[minLng, minLat, maxLng, maxLat]'
+                  field:
+                    type: string
+                    description: 目标标识字段（数据集的 streamKey）
+                  rows:
+                    type: array
+                    description: 与 query_targets 同形，另加 region 字段
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          description: 目标编号（后续 target.select / 历史轨迹的凭据）
+                        lng:
+                          type: number
+                        lat:
+                          type: number
+                        eventTime:
+                          type: string
+                        payload:
+                          type: object
+                          additionalProperties: true
+                        region:
+                          type: string
+                          nullable: true
+                  rowCount:
+                    type: integer
+                  scanned:
+                    type: integer
+                    description: 实际逐行判定的原始报文行数
+                  truncated:
+                    type: boolean
+        '400':
+          description: region/bbox 缺失或同时给出、区域未命中歧义、数据集非流式或缺 streamKey
+        '404':
+          description: 数据集不存在或不属于该项目
+        '503':
+          description: 未配置时序库
+
+  /api/projects/{projectId}/agent/regions:
+    get:
+      tags:
+        - 数据探索
+      summary: 查询区域字典（区域名转包围盒）
+      description: |
+        【功能 05 · 查询腿】把用户口中的**语义区域名**换成可用的地理范围。
+
+        不传 `q` 返回全部预置区域（渤海、黄海、东海、南海、第一/第二岛链、台湾海峡、
+        巴士海峡、宫古海峡、马六甲海峡、舟山群岛、珠江口）。
+
+        返回的 `bbox` 顺序固定为 `[minLng, minLat, maxLng, maxLat]`，可直接用于
+        `map.focus` 的 `bounds` 模式。
+
+        **查不到时**（`rowCount:0`）：用你自己的地理知识给出 bbox，走 `map.focus` 的 `bounds` 模式，
+        **并在回复里说明所用范围**，让用户可以纠正。
+      operationId: list_regions
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 项目 ID
+          schema:
+            type: string
+            example: "79f3431e"
+        - name: q
+          in: query
+          required: false
+          description: 区域名或别名（大小写不敏感、支持部分包含，如 `渤海` / `渤海湾` / `bohai`）。不传返回全部。
+          schema:
+            type: string
+            example: "渤海"
+      responses:
+        '200':
+          description: 命中的区域（未命中时 regions 为空数组、rowCount 为 0）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  regions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          description: 区域键，可用于 map.focus 的 region 模式
+                        name:
+                          type: string
+                        aliases:
+                          type: array
+                          items:
+                            type: string
+                        bbox:
+                          type: array
+                          items:
+                            type: number
+                          description: '[minLng, minLat, maxLng, maxLat]'
+                        center:
+                          type: array
+                          items:
+                            type: number
+                        zoom:
+                          type: number
+                  rowCount:
+                    type: integer
+
+  /api/projects/{projectId}/agent/commands:
+    # 同一路径两个操作：POST = 下发指令（智能体用）；GET = 页面长轮询取令（仅调试用）
+    post:
+      tags:
+        - 地图控制
+      summary: 下发一条地图指令给浏览器页面执行（含**创建图层**：dataset.create 建数据集 + layer.update 改图层）
+      description: |
+        【功能 02/03/04/05/09 · 控制腿的「下发」】把指令放进该项目的内存队列，
+        页面上打开「接入智能体」开关后会在长轮询中取走并在**本页**执行。
+
+        请求体固定为 `{ "type": "...", "payload": {...} }`，`type` 取值见下表。
+        **表分两段**：前 7 个是**运行时指令**（只改浏览器里的视图，刷新即恢复）；
+        后 2 个是**配置指令**（`dataset.create` / `layer.update`），**会真的写进用户的项目**，
+        也就是「**创建图层 / 改图层**」这个能力——见表格下方专段。
+
+        #### 运行时指令（只改视图，不碰项目）
+
+        | type | payload | 功能 |
+        |---|---|---|
+        | `layer.visibility` | `{layerId, visible}` | 单个图层显隐。`layerId` 用 inspect_project 拿；也可用 `layerName`（中文名）代替，重名或不存在会返回 400 + 候选列表 |
+        | `layer.visibility` | `{scope:"all", visible, keepTiles?}` | **整片图层**显隐。`keepTiles` 默认 `true` = 瓦片底图不动；要连瓦片一起改必须显式传 `false` |
+        | `layer.isolate` | `{layerIds?, layerNames?, keepTiles?}` | **只显示点名的图层**，其余隐藏。`keepTiles` 默认 `true`；两者可混用，按 id 去重 |
+        | `layer.bringToFront` | `{layerId \| layerName}` | **把图层提到最上层**（盖住所有业务图层）。两个图标图层互相覆盖时用这条 |
+        | `layer.sendToBack` | `{layerId \| layerName}` | **把图层压到最下层**（仍在瓦片底图之上，不会看不见） |
+        | `map.focus` | `{mode:"point", lng, lat, zoom?}` | 聚焦到点。`zoom` 未指明时用 12 |
+        | `map.focus` | `{mode:"bounds", bbox:[minLng,minLat,maxLng,maxLat], padding?}` | 聚焦到矩形。`padding` 默认 60 |
+        | `map.focus` | `{mode:"region", regionKey}` | 聚焦到区域，服务端解析成 bounds 后入队 |
+        | `map.reset` | `{}` | 复位到项目初始视野 |
+        | `target.select` | `{target:{key,name,lng,lat,payload}, focus?, openPanel?}` | 选中目标：聚焦 + 高亮 + 详情浮层。`target` 直接用 `query_targets` / `query_targets_in_region` 返回的 `rows[]` 那一行即可 |
+
+        #### 配置指令（**创建图层 / 改图层**，会写入用户的项目并保存）
+
+        | type | payload | 功能 |
+        |---|---|---|
+        | `dataset.create` | `{datasetName, columns, rows, layerName?, autoCreateLayer?}` | **创建图层第一步**：建数据集；**产品自己按列名推断出图层**，你只描述「数据是什么」 |
+        | `layer.update` | `{layerId \| layerName, name?, description?, visible?, parser?, visType?, color?, size?, opacity?}` | **创建图层第二步**：用上一步回执里的 `layers[].layerId` 改图层名 / 备注 / 显隐 / 坐标映射 / 可视化类型 / 样式 |
+
+        **创建图层必须两步，没有一步到位的 `layer.create`**（li 的图层必须绑数据集）：
+        先 `dataset.create`，再从回执 `result.detail.layers[].layerId` 取 id 调 `layer.update`。
+        两条都**只在 Builder 页**（`/builder/{projectId}`）执行，且用户必须先在该页打开「接入智能体」开关，
+        否则会一直停在 `queued`。字段细节见下面 `payload` 的说明与 `examples` 里的 `createDataset` / `updateLayer`。
+
+        支持 `layerName` 是为了少一次往返：「隐藏『船舶实时』」可以直接下发
+        `{"type":"layer.visibility","payload":{"layerName":"船舶实时","visible":false}}`。
+
+        **「全部图层」务必用批量形态，不要逐层下发**：批量形态（`scope:"all"` / `layer.isolate`）
+        默认**保留瓦片底图**（`keepTiles` 默认 true）。逐层下发会把底图也关掉、只剩空白画布，
+        而用户要的几乎总是「关掉业务图层、留下底图」。回执的 `detail` 里会列出哪些图层被改
+        （`changed`）、哪些因是瓦片被跳过（`skipped`，`reason:"tile"`）。
+
+        **图层叠放次序**（`layer.bringToFront` / `layer.sendToBack`）：只提供这两个动作，
+        没有完整排序、也不接受绝对 `zIndex`——图层的相对次序是项目配置（编辑器图层面板拖的就是它），
+        临时指令不该表达整套次序。`zIndex` 的具体取值由页面侧计算（层清单只有页面知道），
+        回执 `detail` 里会回报 `before`（改前值）与 `zIndex`（实际写入值）。
+        ⚠️ **编辑器图层面板里拖动图标图层是无效的**（图标/聚合图层是复合图层，不吃 `zIndex` 属性），
+        用户说「两个图标图层一个盖住另一个」「拖了没反应」时，就是用这两条指令解决。
+
+        **返回 `status:"queued"` 只代表「已入队」，不代表「已执行」。**
+        用 `wait=true`（推荐）让本次调用直接等回执，或随后用 `get_command_result` 轮询。
+        若长时间停在 `queued`，说明页面上没有开启「接入智能体」开关，或页面没打开。
+
+        多开的页面会**同时**执行同一条指令（广播，不抢占）。**运行时指令**是幂等的视图操作，多开表现一致；
+        但**配置指令是「写入」，不是幂等的**：两个 Builder 页同时开着开关，`dataset.create` 会**各执行一次、
+        建出重复的数据集与图层**（`layer.update` 是覆盖，影响小但仍会写两次）。
+        所以下发 `dataset.create` 前**先确认只有一个 Builder 页在跑**，且**回执不明时不要重发**。
+
+        限流：每项目每分钟下发上限 120 条，超出返回 429。
+      operationId: send_map_command
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 项目 ID
+          schema:
+            type: string
+            example: "79f3431e"
+        - name: wait
+          in: query
+          required: false
+          description: |
+            是否等待页面执行回执。`true` = 本次调用阻塞至多 `timeoutMs` 毫秒，
+            响应里多一个 `result` 字段（`status` 变为 `done`）。**推荐用 `true`**，
+            这样一次调用就能确认「页面真的执行了」，而不是发完就走。
+          schema:
+            type: boolean
+            default: false
+        - name: timeoutMs
+          in: query
+          required: false
+          description: 等回执的最长毫秒数，仅在 `wait=true` 时有效。默认 5000，服务端上限 30000。
+          schema:
+            type: integer
+            default: 5000
+            maximum: 30000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, payload]
+              properties:
+                type:
+                  type: string
+                  description: |
+                    指令类型。**前七个是运行时指令（刷新即恢复），后两个会写入项目配置**：
+                    它们是两条腿，用途完全不同，别混。
+                  enum:
+                    - layer.visibility
+                    - layer.isolate
+                    - layer.bringToFront
+                    - layer.sendToBack
+                    - map.focus
+                    - map.reset
+                    - target.select
+                    - dataset.create
+                    - layer.update
+                payload:
+                  type: object
+                  description: |
+                    指令载荷，随 `type` 而定：
+
+                    **运行时指令**（只改视图，刷新即恢复）
+                    - layer.visibility → 单个 `{layerId 或 layerName, visible}`；整片 `{scope:"all", visible, keepTiles?}`
+                    - layer.isolate → `{layerIds?, layerNames?, keepTiles?}`，只显示点名的图层
+                    - layer.bringToFront / layer.sendToBack → `{layerId 或 layerName}`，只改这一个图层的上下位置
+                    - map.focus → `{mode:"point"|"bounds"|"region", ...}`
+                    - map.reset → `{}`
+                    - target.select → `{target:{key,name,lng,lat,payload}, focus?, openPanel?}`
+                    `layer.*` 的 `keepTiles` 默认 `true`（瓦片底图不动）。
+
+                    **配置指令**（写入项目，需在 Builder 页执行）
+                    - dataset.create → `{datasetName, columns:[{name,type,displayName?}], rows:[{列名:标量}],
+                      layerName?, autoCreateLayer?}`
+                      `type` 只认 string/number/boolean/geo/date/h3（常见别名会宽容映射）；
+                      **坐标列用 `lng`/`lat` 这类可识别的名字且声明 `type:"number"`**；
+                      值只接受标量（不许嵌套对象/数组）、单值 ≤512 字；≤100 列、≤5000 行。
+                      `layerName` 仅在**恰好自动生成 1 个图层**时生效。
+                    - layer.update → `{layerId 或 layerName, name?, description?, visible?, parser?,
+                      visType?, color?, size?, opacity?}`
+                      `parser` 是坐标字段映射：`{x,y}` 或 `{geometry}` 二选一；
+                      **`visType`（换可视化类型）与 `color`/`size`/`opacity` 互斥**——样式字段名随资产而变，
+                      要换类型又要改样式请**分两条指令**；
+                      `color`/`size`/`opacity` 是「改成这个固定值」，不是「换一个映射字段」；
+                      给某图层改它没有的项（如给图标图层改颜色）会**明确报错**，不会静默忽略。
+                  additionalProperties: true
+            examples:
+              hideLayer:
+                summary: 隐藏图层
+                value:
+                  type: layer.visibility
+                  payload:
+                    layerId: layer_abc
+                    visible: false
+              hideAllLayers:
+                summary: 隐藏全部业务图层（保留瓦片底图）
+                value:
+                  type: layer.visibility
+                  payload:
+                    scope: all
+                    visible: false
+              isolateLayers:
+                summary: 只看「船舶实时」和「告警区域」两层
+                value:
+                  type: layer.isolate
+                  payload:
+                    layerNames:
+                      - 船舶实时
+                      - 告警区域
+              bringIconLayerToFront:
+                summary: 把「船舶实时」提到最上层（它被另一个图标图层盖住了）
+                value:
+                  type: layer.bringToFront
+                  payload:
+                    layerName: 船舶实时
+              sendLayerToBack:
+                summary: 把某个图层压到最下层（仍在瓦片底图之上）
+                value:
+                  type: layer.sendToBack
+                  payload:
+                    layerId: layer_abc
+              focusPoint:
+                summary: 聚焦到经纬度
+                value:
+                  type: map.focus
+                  payload:
+                    mode: point
+                    lng: 121.47
+                    lat: 31.23
+                    zoom: 12
+              focusRegion:
+                summary: 聚焦到区域
+                value:
+                  type: map.focus
+                  payload:
+                    mode: region
+                    regionKey: bohai
+              selectTarget:
+                summary: 选中目标
+                value:
+                  type: target.select
+                  payload:
+                    target:
+                      key: "245272000"
+                      name: 远洋之星
+                      lng: 121.47
+                      lat: 31.23
+                      payload:
+                        mmsi: 245272000
+                        speed: 8.2
+                    focus: true
+              createDataset:
+                summary: 建数据集（建图层第一步；产品会据此自动生成图层）
+                description: |
+                  列名用 lng/lat 且声明 number，产品才能推断出坐标配对。
+                  回执里 `detail.layers[].layerId` 就是第二步 layer.update 要用的 id。
+                value:
+                  type: dataset.create
+                  payload:
+                    datasetName: 试验航迹
+                    columns:
+                      - name: mmsi
+                        type: string
+                        displayName: 船号
+                      - name: lng
+                        type: number
+                      - name: lat
+                        type: number
+                    rows:
+                      - mmsi: "413000001"
+                        lng: 121.47
+                        lat: 31.23
+                      - mmsi: "413000002"
+                        lng: 121.52
+                        lat: 31.28
+              updateLayer:
+                summary: 改图层属性（建图层第二步）
+                description: |
+                  只给要改的字段。换可视化类型（visType）与改样式（color/size/opacity）不能同一条给。
+                value:
+                  type: layer.update
+                  payload:
+                    layerId: BubbleLayer_9a2b
+                    name: 试验航迹
+                    color: "#F86624"
+                    size: 12
+      responses:
+        '200':
+          description: 已入队（`wait=true` 且页面已回执时 status 为 done 并带 result）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cmdId:
+                    type: string
+                    description: 指令 id，用于 get_command_result 查询
+                  seq:
+                    type: integer
+                    description: 项目内的单调递增序号
+                  status:
+                    type: string
+                    enum: [queued, done]
+                  capability:
+                    type: string
+                    enum: [runtime, config]
+                    description: |
+                      本指令属于哪一类。`runtime` = 只改运行时视图（任意挂了「智能体桥」的地图页都能执行）；
+                      `config` = 会写入项目配置（**只**能在 Builder 页执行）。排障时先看这个字段：
+                      `config` 的指令在 Share 页下发永远 `queued`，那不说明页面上没开开关。
+                  hint:
+                    type: string
+                    description: |
+                      仅在 `wait=true` 等到超时仍未回执时出现，说明该去哪打开开关。
+                      注意 `config` 类要求**两个条件并列**：在 Builder 页，且用户在该页打开了「接入智能体」开关
+                      （没有单独的「配置开关」）。
+                  result:
+                    type: object
+                    nullable: true
+                    description: 仅在 `wait=true` 时出现；页面回执到达前为 null
+                    properties:
+                      ok:
+                        type: boolean
+                        description: 页面是否执行成功
+                      error:
+                        type: string
+                        nullable: true
+                      detail:
+                        type: object
+                        nullable: true
+                        additionalProperties: true
+                      executedAt:
+                        type: string
+                        nullable: true
+                    additionalProperties: true
+        '400':
+          description: 指令不合法（未知 type、字段缺失或越界、layerId 不属于该项目、区域不存在等）
+        '429':
+          description: 下发过于频繁（每项目每分钟上限 120 条）
+
+    # GET 是同路径的另一个操作：浏览器页面「取令」用的长轮询。仅调试用 —— 见下方说明。
+    get:
+      tags:
+        - 指令通道
+      summary: '[调试用] 模拟页面取令（长轮询）'
+      description: |
+        ⚠️ **仅调试与排障用，正常业务流程不要调**。
+
+        这是浏览器页面「取令」用的长轮询接口。语义是：返回严格大于 `since` 的指令，
+        没有新指令时**挂起至多 `timeout` 秒**才返回。
+
+        - **省略 `since`** → 不回放任何指令，只返回当前最新 `seq`（`commands` 为空）。页面首次连接用它对齐游标。
+        - **多开 = 广播**：所有取令者都会拿到并执行同一条指令，不做抢占。
+
+        排障价值：**省略 `since` 调用一次**，看返回的 `seq` 有没有随 `send_map_command` 增长——
+        增长说明指令成功入队了；此时若回执一直是 `queued`，问题一定在页面侧（页面没打开 / 开关没开启）。
+
+        ⚠️ 手工调用本接口**会真的把指令取走**：若同时有页面在取令，页面可能拿不到这条指令。
+      operationId: poll_map_commands
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 项目 ID
+          schema:
+            type: string
+            example: "79f3431e"
+        - name: since
+          in: query
+          required: false
+          description: 游标；省略则只回游标、不回放指令
+          schema:
+            type: integer
+            example: 0
+        - name: timeout
+          in: query
+          required: false
+          description: 无新指令时的挂起秒数，默认 25，服务端上限 30。调试时建议给 0~5。
+          schema:
+            type: integer
+            default: 25
+            maximum: 30
+        - name: capabilities
+          in: query
+          required: false
+          description: |
+            只取自己那类指令（逗号分隔）。**智能体一般不需要传**——这是给页面上的两个执行器分流用的：
+            `runtime`（地图侧「智能体桥」）/ `config`（Builder 页「智能体配置桥」）。
+            省略 = 两类都取。被过滤掉的指令**留在队列里**，不会被取走丢弃。
+          schema:
+            type: string
+            example: runtime
+      responses:
+        '200':
+          description: 指令列表与最新游标
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commands:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cmdId:
+                          type: string
+                        seq:
+                          type: integer
+                        type:
+                          type: string
+                        payload:
+                          type: object
+                          additionalProperties: true
+                  seq:
+                    type: integer
+                    description: 服务端当前最新序号（下次作为 since 传回）
+
+  # 注：页面回执的**写入**接口 POST /api/projects/{projectId}/agent/commands/{cmdId}/result
+  # 有意**不写进本规范** —— 它是浏览器页面的专用通道，暴露给智能体等于让智能体伪造自己的回执。
+  # 智能体读回执走下面同路径的 GET。
+
+  /api/projects/{projectId}/agent/commands/{cmdId}/result:
+    get:
+      tags:
+        - 地图控制
+      summary: 读取指令的执行结果
+      description: |
+        【功能 02/03/04/05 · 控制腿的「读回执」】确认先前下发的指令**是否真的被执行**。
+
+        - `status:"queued"` — 还没被执行（页面未打开、或页面上没开启「接入智能体」开关）
+        - `status:"done"` — 页面已执行，看 `result.ok`；`ok:false` 时读 `result.error` 向用户说明原因
+        - `404` — cmdId 未知（指令已被队列上限挤出，队列最多留 100 条）
+
+        典型用法：`send_map_command` 用 `wait=false` 发出后，隔一两秒调本接口确认。
+        下发时直接用 `wait=true` 则不需要本接口。
+      operationId: get_command_result
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 项目 ID
+          schema:
+            type: string
+            example: "79f3431e"
+        - name: cmdId
+          in: path
+          required: true
+          description: send_map_command 返回的 cmdId
+          schema:
+            type: string
+            example: "c_8f2a3b1c"
+      responses:
+        '200':
+          description: 指令与回执
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cmdId:
+                    type: string
+                  seq:
+                    type: integer
+                  type:
+                    type: string
+                  status:
+                    type: string
+                    enum: [queued, done]
+                  result:
+                    type: object
+                    nullable: true
+                    properties:
+                      ok:
+                        type: boolean
+                      error:
+                        type: string
+                        nullable: true
+                      detail:
+                        type: object
+                        nullable: true
+                        additionalProperties: true
+                      executedAt:
+                        type: string
+                        nullable: true
+                    additionalProperties: true
+        '404':
+          description: cmdId 未知
+

@@ -1,0 +1,20 @@
+0 verbose cli D:\software\nodejs\node.exe D:\home\ybl\.npm-global\node_modules\npm\bin\npm-cli.js
+1 info using npm@12.0.2
+2 info using node@v24.15.0
+3 silly config load:file:D:\home\ybl\.npm-global\node_modules\npm\npmrc
+4 silly config load:file:D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\.npmrc
+5 silly config load:file:C:\Users\yu\.npmrc
+6 silly config load:file:D:\home\ybl\.npm-global\etc\npmrc
+7 verbose title npm run build:website
+8 verbose argv "run" "build:website"
+9 verbose logfile logs-max:10 dir:D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\npm-cache\_logs\2026-09-08T16_28_50_975Z-
+10 verbose logfile D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\npm-cache\_logs\2026-09-08T16_28_50_975Z-debug-0.log
+11 silly logfile done cleaning log files
+12 notice run build:website
+13 notice run lerna run build --scope=@antv/li-website --skip-nx-cache
+14 verbose cwd D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO
+15 verbose os Windows_NT 10.0.26200
+16 verbose node v24.15.0
+17 verbose npm  v12.0.2
+18 verbose exit 1
+19 verbose code 1

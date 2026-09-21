@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24">
+  <!-- 卫星（星体+太阳翼+天线，来自 ShadowBroker makeSatSvg，青色 #14b8a6） -->
+  <rect x="9" y="9" width="6" height="6" rx="1" fill="#14b8a6" stroke="#0a0e1a" stroke-width="0.5"/>
+  <rect x="1" y="10" width="7" height="4" rx="1" fill="#14b8a6" opacity="0.7" stroke="#0a0e1a" stroke-width="0.3"/>
+  <rect x="16" y="10" width="7" height="4" rx="1" fill="#14b8a6" opacity="0.7" stroke="#0a0e1a" stroke-width="0.3"/>
+  <line x1="8" y1="12" x2="1" y2="12" stroke="#14b8a6" stroke-width="0.8"/>
+  <line x1="16" y1="12" x2="23" y2="12" stroke="#14b8a6" stroke-width="0.8"/>
+  <circle cx="12" cy="12" r="1.5" fill="#fff" opacity="0.8"/>
+</svg>

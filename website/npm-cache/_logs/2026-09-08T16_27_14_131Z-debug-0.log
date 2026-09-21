@@ -1,0 +1,39 @@
+0 verbose cli D:\software\nodejs\node.exe D:\home\ybl\.npm-global\node_modules\npm\bin\npm-cli.js
+1 info using npm@12.0.2
+2 info using node@v24.15.0
+3 silly config load:file:D:\home\ybl\.npm-global\node_modules\npm\npmrc
+4 info config found workspace root at D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO
+5 silly config load:file:D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\.npmrc
+6 silly config load:file:C:\Users\yu\.npmrc
+7 silly config load:file:D:\home\ybl\.npm-global\etc\npmrc
+8 verbose title npm run build
+9 verbose argv "run" "build"
+10 verbose logfile logs-max:10 dir:D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\website\npm-cache\_logs\2026-09-08T16_27_14_131Z-
+11 verbose logfile D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\website\npm-cache\_logs\2026-09-08T16_27_14_131Z-debug-0.log
+12 silly logfile done cleaning log files
+13 notice run @antv/li-website@0.0.0 build
+14 notice run umi build
+15 verbose stack Error: command failed
+15 verbose stack     at promiseSpawn (D:\home\ybl\.npm-global\node_modules\npm\node_modules\@npmcli\promise-spawn\lib\index.js:22:22)
+15 verbose stack     at spawnWithShell (D:\home\ybl\.npm-global\node_modules\npm\node_modules\@npmcli\promise-spawn\lib\index.js:124:10)
+15 verbose stack     at promiseSpawn (D:\home\ybl\.npm-global\node_modules\npm\node_modules\@npmcli\promise-spawn\lib\index.js:12:12)
+15 verbose stack     at runScriptPkg (D:\home\ybl\.npm-global\node_modules\npm\node_modules\@npmcli\run-script\lib\run-script-pkg.js:70:13)
+15 verbose stack     at runScript (D:\home\ybl\.npm-global\node_modules\npm\node_modules\@npmcli\run-script\lib\run-script.js:8:12)
+15 verbose stack     at #run (D:\home\ybl\.npm-global\node_modules\npm\lib\commands\run.js:135:13)
+15 verbose stack     at RunScript.execWorkspaces (D:\home\ybl\.npm-global\node_modules\npm\lib\commands\run.js:67:24)
+15 verbose stack     at async Npm.exec (D:\home\ybl\.npm-global\node_modules\npm\lib\npm.js:194:9)
+15 verbose stack     at async module.exports (D:\home\ybl\.npm-global\node_modules\npm\lib\cli\entry.js:67:5)
+16 verbose pkgid @antv/li-website@0.0.0
+17 error Lifecycle script `build` failed with error:
+18 error code 1
+19 error path D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\website
+20 error workspace @antv/li-website@0.0.0
+21 error location D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\website
+22 error command failed
+23 error command C:\WINDOWS\system32\cmd.exe /d /s /c umi build
+24 verbose cwd D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\website
+25 verbose os Windows_NT 10.0.26200
+26 verbose node v24.15.0
+27 verbose npm  v12.0.2
+28 verbose exit 1
+29 verbose code 1

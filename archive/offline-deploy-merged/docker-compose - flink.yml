@@ -1,0 +1,89 @@
+# Flink 1.17.0 离线部署（Java 11）
+#
+# 单容器形态：JobManager 与 TaskManager 跑在同一个容器内，构成
+# standalone session 集群，TaskManager 提供 3 个 slot
+# （见 config/flink-conf.yaml 的 taskmanager.numberOfTaskSlots）。
+#
+# ---------------------------------------------------------------------------
+# 离线机器部署步骤
+# ---------------------------------------------------------------------------
+#   docker load -i dist/flink-1.17.0-java11-offline.tar.gz
+#   docker compose -f docker-compose.yml up -d
+#   docker compose -f docker-compose.yml logs -f
+# 然后访问 http://<服务器IP>:8081
+#
+# 也可以用一键脚本：bash deploy.sh
+#
+# ---------------------------------------------------------------------------
+# 内存需求
+# ---------------------------------------------------------------------------
+# config/flink-conf.yaml 里 JM 1600m + TM 1728m，加上 JVM native/metaspace/
+# 网络栈开销，宿主机建议预留 >= 4G 可用内存。
+#
+# ---------------------------------------------------------------------------
+# 修改配置
+# ---------------------------------------------------------------------------
+# config/flink-conf.yaml 以只读方式挂载进容器，改完执行
+#   docker compose -f docker-compose.yml restart
+# 即生效，无需重建镜像、无需重新导出离线包。
+
+name: flink-offline
+
+services:
+  flink:
+    image: flink:1.17.0-java11
+    container_name: flink
+    restart: unless-stopped
+
+    ports:
+      # Web UI + REST。与 config/flink-conf.yaml 的 rest.port: 8081 对应，
+      # 改配置里的端口要同步改这里。
+      - "8081:8081"
+      # JobManager RPC。单容器内部通信其实不走这个映射，
+      # 保留是为了将来拆成 JM/TM 多容器时不用改配置。
+      - "6123:6123"
+
+    environment:
+      TZ: Asia/Shanghai
+
+    volumes:
+      # 配置文件外置：宿主机上改完 restart 即生效，这是本部署包的主要可调点。
+      #
+      # 注意这里挂的是【config 目录】而不是单个 flink-conf.yaml 文件。
+      # 容器启动时 entrypoint 会把 /opt/flink/conf.d/flink-conf.yaml
+      # 软链到 /opt/flink/conf/flink-conf.yaml。
+      #
+      # 为什么不能用单文件挂载：Docker Desktop(WSL2) 对 Windows 盘上的单文件
+      # bind mount 按 inode 暂存，源文件被替换 inode（sed -i、vim 及多数编辑器的
+      # 原子保存）后，容器记录的暂存路径悬空，restart 会报
+      #   error mounting "...": no such file or directory   （容器以 127 退出）
+      # 挂载目录没有这个问题：目录 inode 不变，文件内容实时读取。
+      - ./config:/opt/flink/conf.d:ro
+      # 连接器 / 作业 jar 挂载点。entrypoint 启动时会把这些 jar 软链进
+      # /opt/flink/lib/ 接入系统 classpath。加完 jar 需 restart 生效。
+      # 容器内是 uid 10000，只读挂载因此不涉及宿主机目录属主问题。
+      - ./jars:/opt/flink/usrlib:ro
+      # 日志持久化。这里用命名卷而不是 ./logs bind mount：
+      # 容器内是非 root(uid 10000)，bind mount 到一个新建的宿主机目录
+      # （root:root）会导致 Flink 写日志失败、集群起不来；命名卷会
+      # 自动继承镜像内 /opt/flink/log 的属主，零权限坑。
+      # 想改成宿主机目录见 README「把日志落到宿主机目录」。
+      - flink-logs:/opt/flink/log
+
+    # Flink 每个 slot 都要开较多文件描述符，默认 1024 在高并发下容易打爆
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+    # 用 bash 内建 /dev/tcp 探活，镜像里没有 curl
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081' 2>/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # JM+TM 的 JVM 冷启动通常要 20~40s，留足首次探测窗口
+      start_period: 60s
+
+volumes:
+  flink-logs:

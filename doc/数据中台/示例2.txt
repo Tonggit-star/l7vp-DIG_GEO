@@ -1,0 +1,51 @@
+//获取令牌
+let sso_hostname = 'localhost', sso_port = '8089', username='username', password = 'password';
+$.ajax({
+  type: "POST",
+  url: `http://${sso_hostname}:${sso_port}/sso/oauth2/token?username=${username}&password=${password}&grant_type=password&client_id=clientId&client_secret=clientSecret`,
+  success: function (message) {
+    console.log(message);
+    let Authorization = `Bearer ${message.access_token}`;
+    //请求头其它参数
+    let spaceId = 'default';	//空间id，所有工作区都需要填写空间ID
+    let scopeType = 'User'; //工作区类型，User 个人工作区   Tenant 项目工作区   Scope 空间工作区
+    let tenantId = '';	//当为项目工作区时，需要填写项目ID
+
+    //构建请求体
+    var requestBody = {};
+    requestBody.sqlMode="normal";
+    requestBody.rowType="list";
+
+    var dataServiceParams = {};		//根据具体服务修改输入参数
+
+    requestBody.dataServiceParams = dataServiceParams;
+
+    var requestData = JSON.stringify(requestBody);
+    var curDate = new Date().format("yyyy-MM-dd hh:mm:ss");
+    console.log("时间："+curDate);
+
+    var resourceApiCode = "test_1017001"; //根据实际修改,也可以使用resourceId
+    let hostname = 'localhost', port = '8081';
+    $.ajax({
+      type: "POST",
+      url: `http://${hostname}:${port}/daasDMS/ssoapi/ApiDataResource/${resourceApiCode}`,//根据实际情况修改服务地址
+      contentType: "application/json; charset=utf-8",
+      data: requestData,
+      dataType: "json",
+      headers : {
+        'X-Amz-Date':''+curDate+'',
+        'Authorization':''+Authorization+'',
+        spaceId, scopeType, tenantId
+      },
+      success: function (message) {
+        console.log(message);
+      },
+      error: function (message) {
+        alert("提交数据失败！"+JSON.stringify(message));
+      }
+    });
+  },
+  error: function (message) {
+    alert("获取token失败！"+JSON.stringify(message));
+  }
+});

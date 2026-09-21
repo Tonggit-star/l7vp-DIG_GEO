@@ -1,0 +1,98 @@
+[
+  {
+    "key": "bohai",
+    "name": "渤海",
+    "aliases": ["渤海湾", "环渤海", "Bohai", "Bohai Sea", "Bohai Bay"],
+    "bbox": [117.0, 37.0, 122.5, 41.0],
+    "center": [119.7, 39.0],
+    "zoom": 7
+  },
+  {
+    "key": "huanghai",
+    "name": "黄海",
+    "aliases": ["Yellow Sea", "Huanghai"],
+    "bbox": [119.0, 33.0, 126.5, 39.5],
+    "center": [122.5, 36.0],
+    "zoom": 6
+  },
+  {
+    "key": "donghai",
+    "name": "东海",
+    "aliases": ["East China Sea", "Donghai"],
+    "bbox": [120.5, 25.0, 130.0, 33.5],
+    "center": [125.0, 29.5],
+    "zoom": 6
+  },
+  {
+    "key": "nanhai",
+    "name": "南海",
+    "aliases": ["South China Sea", "Nanhai", "南中国海"],
+    "bbox": [105.0, 3.5, 121.0, 23.5],
+    "center": [113.0, 15.0],
+    "zoom": 5
+  },
+  {
+    "key": "first_island_chain",
+    "name": "第一岛链",
+    "aliases": ["岛链", "First Island Chain", "第一岛链北段", "第一岛链南段"],
+    "bbox": [119.0, 1.0, 146.0, 46.0],
+    "center": [133.0, 24.0],
+    "zoom": 4
+  },
+  {
+    "key": "second_island_chain",
+    "name": "第二岛链",
+    "aliases": ["Second Island Chain"],
+    "bbox": [128.0, 2.0, 148.0, 36.0],
+    "center": [140.0, 18.0],
+    "zoom": 4
+  },
+  {
+    "key": "taiwan_strait",
+    "name": "台湾海峡",
+    "aliases": ["台海", "Taiwan Strait"],
+    "bbox": [117.5, 22.5, 122.0, 26.5],
+    "center": [119.8, 24.5],
+    "zoom": 7
+  },
+  {
+    "key": "bashi_channel",
+    "name": "巴士海峡",
+    "aliases": ["巴士海峡以东", "Bashi Channel", "Bashi"],
+    "bbox": [119.5, 20.0, 123.5, 22.5],
+    "center": [121.5, 21.3],
+    "zoom": 7
+  },
+  {
+    "key": "miyako_channel",
+    "name": "宫古海峡",
+    "aliases": ["宫古水道", "Miyako Strait", "Miyako Channel"],
+    "bbox": [124.0, 24.0, 126.5, 25.5],
+    "center": [125.2, 24.8],
+    "zoom": 8
+  },
+  {
+    "key": "malacca",
+    "name": "马六甲海峡",
+    "aliases": ["马六甲", "Strait of Malacca", "Malacca Strait"],
+    "bbox": [99.0, 1.0, 104.5, 6.5],
+    "center": [101.5, 3.5],
+    "zoom": 7
+  },
+  {
+    "key": "zhoushan",
+    "name": "舟山群岛",
+    "aliases": ["舟山", "Zhoushan"],
+    "bbox": [121.5, 29.5, 123.0, 31.0],
+    "center": [122.2, 30.2],
+    "zoom": 8
+  },
+  {
+    "key": "pearl_river_estuary",
+    "name": "珠江口",
+    "aliases": ["伶仃洋", "Pearl River Estuary", "Pearl River Delta"],
+    "bbox": [113.0, 21.8, 114.5, 23.2],
+    "center": [113.7, 22.5],
+    "zoom": 8
+  }
+]

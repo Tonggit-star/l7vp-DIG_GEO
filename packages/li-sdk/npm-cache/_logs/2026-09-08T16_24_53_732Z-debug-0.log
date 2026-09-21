@@ -1,0 +1,22 @@
+0 verbose cli D:\software\nodejs\node.exe D:\home\ybl\.npm-global\node_modules\npm\bin\npm-cli.js
+1 info using npm@12.0.2
+2 info using node@v24.15.0
+3 silly config load:file:D:\home\ybl\.npm-global\node_modules\npm\npmrc
+4 info config found workspace root at D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO
+5 silly config load:file:D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\.npmrc
+6 silly config load:file:C:\Users\yu\.npmrc
+7 silly config load:file:D:\home\ybl\.npm-global\etc\npmrc
+8 verbose title npm run build
+9 verbose argv "run" "build"
+10 verbose logfile logs-max:10 dir:D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\packages\li-sdk\npm-cache\_logs\2026-09-08T16_24_53_732Z-
+11 verbose logfile D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\packages\li-sdk\npm-cache\_logs\2026-09-08T16_24_53_732Z-debug-0.log
+12 silly logfile done cleaning log files
+13 notice run @antv/li-sdk@1.5.1 build
+14 notice run npm run clean && father build
+15 http fetch GET 200 https://registry.npmmirror.com/npm 286ms
+16 verbose cwd D:\code\l7vp\0818-hxc\DIG_GEO\DIG_GEO\packages\li-sdk
+17 verbose os Windows_NT 10.0.26200
+18 verbose node v24.15.0
+19 verbose npm  v12.0.2
+20 verbose exit 0
+21 info ok

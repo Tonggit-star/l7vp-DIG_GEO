@@ -1,0 +1,501 @@
+TypeError: Cannot read properties of undefined (reading 'isCustom')
+eval
+.@antv/node_modules/@formily/json-schema/esm/compiler.js:16
+  13 |             catch (_a) { }
+  14 |         }
+  15 |         else {
+> 16 |             return new Function('$root', "with($root) { return (".concat(expression, "); }"))(scope);
+  17 |         }
+  18 |     },
+  19 | };
+View compiled
+compile
+.@antv/node_modules/@formily/json-schema/esm/compiler.js:16
+  13 |             catch (_a) { }
+  14 |         }
+  15 |         else {
+> 16 |             return new Function('$root', "with($root) { return (".concat(expression, "); }"))(scope);
+  17 |         }
+  18 |     },
+  19 | };
+View compiled
+shallowCompile
+.@antv/node_modules/@formily/json-schema/esm/compiler.js:34
+  31 |         var matched = source.match(ExpRE);
+  32 |         if (!matched)
+  33 |             return source;
+> 34 |         return Registry.compile(matched[1], scope);
+  35 |     }
+  36 |     return source;
+  37 | };
+View compiled
+compile
+.@antv/node_modules/@formily/json-schema/esm/compiler.js:42
+  39 | var seenObjects = [];
+  40 | var compile = function (source) {
+  41 |     if (isStr(source)) {
+> 42 |         return shallowCompile(source, scope);
+     | ^  43 |     }
+  44 |     else if (isArr(source)) {
+  45 |         return source.map(function (value) { return compile(value); });
+View compiled
+compile
+.@antv/node_modules/@formily/json-schema/esm/compiler.js:65
+  62 |         }
+  63 |         return source;
+  64 |     };
+> 65 |     return compile(source);
+  66 | };
+  67 | export var patchCompile = function (targetState, sourceState, scope) {
+  68 |     traverse(sourceState, function (value, pattern) {
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/json-schema/esm/compiler.js:69
+  66 | };
+  67 | export var patchCompile = function (targetState, sourceState, scope) {
+  68 |     traverse(sourceState, function (value, pattern) {
+> 69 |         var compiled = compile(value, scope);
+  70 |         if (compiled === undefined)
+  71 |             return;
+  72 |         var path = FormPath.parse(pattern);
+View compiled
+traverse
+.@antv/node_modules/@formily/json-schema/esm/shared.js:83
+  80 |         seenObjects.splice(addIndex, 1);
+  81 |     }
+  82 |     else {
+> 83 |         visitor(target, path);
+     | ^  84 |     }
+  85 | };
+  86 | traverse(target);
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/json-schema/esm/shared.js:78
+  75 |         return;
+  76 |     }
+  77 |     each(target, function (value, key) {
+> 78 |         traverse(value, path.concat(key));
+     | ^  79 |     });
+  80 |     seenObjects.splice(addIndex, 1);
+  81 | }
+View compiled
+each
+.@antv/node_modules/@formily/shared/esm/array.js:24
+  21 | var key = void 0;
+  22 | for (key in val) {
+  23 |     if (Object.hasOwnProperty.call(val, key)) {
+> 24 |         if (iterator(val[key], key) === false) {
+     | ^  25 |             return;
+  26 |         }
+  27 |     }
+View compiled
+traverse
+.@antv/node_modules/@formily/json-schema/esm/shared.js:77
+  74 |     visitor(target, path);
+  75 |     return;
+  76 | }
+> 77 | each(target, function (value, key) {
+     | ^  78 |     traverse(value, path.concat(key));
+  79 | });
+  80 | seenObjects.splice(addIndex, 1);
+View compiled
+traverse
+.@antv/node_modules/@formily/json-schema/esm/shared.js:86
+  83 |             visitor(target, path);
+  84 |         }
+  85 |     };
+> 86 |     traverse(target);
+  87 | };
+  88 | export var traverseSchema = function (schema, visitor) {
+  89 |     var _a;
+View compiled
+patchCompile
+.@antv/node_modules/@formily/json-schema/esm/compiler.js:68
+  65 |     return compile(source);
+  66 | };
+  67 | export var patchCompile = function (targetState, sourceState, scope) {
+> 68 |     traverse(sourceState, function (value, pattern) {
+  69 |         var compiled = compile(value, scope);
+  70 |         if (compiled === undefined)
+  71 |             return;
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/json-schema/esm/transformer.js:91
+  88 | }
+  89 | else {
+  90 |     if (request.state) {
+> 91 |         field.setState(function (state) { return patchCompile(state, request.state, scope); });
+     | ^  92 |     }
+  93 |     if (request.schema) {
+  94 |         field.setState(function (state) {
+View compiled
+deserialize
+.@antv/node_modules/@formily/core/esm/shared/internals.js:573
+  570 | if (!model)
+  571 |     return;
+  572 | if (isFn(setter)) {
+> 573 |     setter(model);
+      | ^  574 | }
+  575 | else {
+  576 |     for (var key in setter) {
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/core/esm/shared/internals.js:626
+  623 |     };
+  624 | };
+  625 | export var createStateSetter = function (model) {
+> 626 |     return batch.bound(function (setter) { return deserialize(model, setter); });
+  627 | };
+  628 | export var createStateGetter = function (model) {
+  629 |     return function (getter) { return serialize(model, getter); };
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/reactive/esm/internals.js:106
+  103 |         for (var _i = 0; _i < arguments.length; _i++) {
+  104 |             args[_i] = arguments[_i];
+  105 |         }
+> 106 |         return boundary(function () { return callback.apply(context, args); });
+      | ^  107 |     });
+  108 | }
+  109 | return bind;
+View compiled
+boundary
+.@antv/node_modules/@formily/reactive/esm/internals.js:88
+  85 | try {
+  86 |     start();
+  87 |     if (isFn(fn)) {
+> 88 |         results = fn();
+     | ^  89 |     }
+  90 | }
+  91 | finally {
+View compiled
+ObjectField.setState
+.@antv/node_modules/@formily/reactive/esm/internals.js:106
+  103 |         for (var _i = 0; _i < arguments.length; _i++) {
+  104 |             args[_i] = arguments[_i];
+  105 |         }
+> 106 |         return boundary(function () { return callback.apply(context, args); });
+      | ^  107 |     });
+  108 | }
+  109 | return bind;
+View compiled
+setSchemaFieldState
+.@antv/node_modules/@formily/json-schema/esm/transformer.js:91
+  88 | }
+  89 | else {
+  90 |     if (request.state) {
+> 91 |         field.setState(function (state) { return patchCompile(state, request.state, scope); });
+     | ^  92 |     }
+  93 |     if (request.schema) {
+  94 |         field.setState(function (state) {
+View compiled
+run
+.@antv/node_modules/@formily/json-schema/esm/transformer.js:181
+  178 | var condition = when ? compiledWhen : true;
+  179 | var request = condition ? fulfill : otherwise;
+  180 | var runner = request === null || request === void 0 ? void 0 : request.run;
+> 181 | setSchemaFieldState({
+      | ^  182 |     field: field,
+  183 |     target: target,
+  184 |     request: request,
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/json-schema/esm/transformer.js:204
+  201 |             }, []);
+  202 |         }
+  203 |         else {
+> 204 |             run();
+      | ^  205 |         }
+  206 |     };
+  207 | });
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/core/esm/shared/internals.js:1002
+   999 |         field.disposers.push(autorun(batch.scope.bound(function () {
+  1000 |             if (field.destroyed)
+  1001 |                 return;
+> 1002 |             reaction(field);
+       | ^  1003 |         })));
+  1004 |     }
+  1005 | });
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/reactive/esm/internals.js:106
+  103 |         for (var _i = 0; _i < arguments.length; _i++) {
+  104 |             args[_i] = arguments[_i];
+  105 |         }
+> 106 |         return boundary(function () { return callback.apply(context, args); });
+      | ^  107 |     });
+  108 | }
+  109 | return bind;
+View compiled
+boundary
+.@antv/node_modules/@formily/reactive/esm/internals.js:88
+  85 | try {
+  86 |     start();
+  87 |     if (isFn(fn)) {
+> 88 |         results = fn();
+     | ^  89 |     }
+  90 | }
+  91 | finally {
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/reactive/esm/internals.js:106
+  103 |         for (var _i = 0; _i < arguments.length; _i++) {
+  104 |             args[_i] = arguments[_i];
+  105 |         }
+> 106 |         return boundary(function () { return callback.apply(context, args); });
+      | ^  107 |     });
+  108 | }
+  109 | return bind;
+View compiled
+reaction
+.@antv/node_modules/@formily/reactive/esm/autorun.js:28
+  25 | try {
+  26 |     batchStart();
+  27 |     ReactionStack.push(reaction);
+> 28 |     tracker();
+     | ^  29 | }
+  30 | finally {
+  31 |     ReactionStack.pop();
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/reactive/esm/reaction.js:202
+  199 |             reaction._scheduler(reaction);
+  200 |         }
+  201 |         else {
+> 202 |             reaction();
+  203 |         }
+  204 |     });
+  205 | };
+View compiled
+push.../node_modules/@formily/reactive/esm/array.js.ArraySet.batchDelete
+.@antv/node_modules/@formily/reactive/esm/array.js:54
+  51 |         var value = this.value[this.forEachIndex];
+  52 |         this.value.splice(this.forEachIndex, 1);
+  53 |         this.forEachIndex--;
+> 54 |         callback(value);
+     | ^  55 |     }
+  56 | };
+  57 | ArraySet.prototype.clear = function () {
+View compiled
+executePendingReactions
+.@antv/node_modules/@formily/reactive/esm/reaction.js:197
+  194 | export var isScopeBatching = function () { return BatchScope.value; };
+  195 | export var isUntracking = function () { return UntrackCount.value > 0; };
+  196 | export var executePendingReactions = function () {
+> 197 |     PendingReactions.batchDelete(function (reaction) {
+  198 |         if (isFn(reaction._scheduler)) {
+  199 |             reaction._scheduler(reaction);
+  200 |         }
+View compiled
+batchEnd
+.@antv/node_modules/@formily/reactive/esm/reaction.js:165
+  162 | if (BatchCount.value === 0) {
+  163 |     var prevUntrackCount = UntrackCount.value;
+  164 |     UntrackCount.value = 0;
+> 165 |     executePendingReactions();
+      | ^  166 |     executeBatchEndpoints();
+  167 |     UntrackCount.value = prevUntrackCount;
+  168 | }
+View compiled
+reaction
+.@antv/node_modules/@formily/reactive/esm/autorun.js:33
+  30 | finally {
+  31 |     ReactionStack.pop();
+  32 |     reaction._boundary++;
+> 33 |     batchEnd();
+     | ^  34 |     reaction._boundary = 0;
+  35 |     reaction._memos.cursor = 0;
+  36 |     reaction._effects.cursor = 0;
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/reactive/esm/reaction.js:202
+  199 |             reaction._scheduler(reaction);
+  200 |         }
+  201 |         else {
+> 202 |             reaction();
+  203 |         }
+  204 |     });
+  205 | };
+View compiled
+push.../node_modules/@formily/reactive/esm/array.js.ArraySet.batchDelete
+.@antv/node_modules/@formily/reactive/esm/array.js:54
+  51 |         var value = this.value[this.forEachIndex];
+  52 |         this.value.splice(this.forEachIndex, 1);
+  53 |         this.forEachIndex--;
+> 54 |         callback(value);
+     | ^  55 |     }
+  56 | };
+  57 | ArraySet.prototype.clear = function () {
+View compiled
+executePendingReactions
+.@antv/node_modules/@formily/reactive/esm/reaction.js:197
+  194 | export var isScopeBatching = function () { return BatchScope.value; };
+  195 | export var isUntracking = function () { return UntrackCount.value > 0; };
+  196 | export var executePendingReactions = function () {
+> 197 |     PendingReactions.batchDelete(function (reaction) {
+  198 |         if (isFn(reaction._scheduler)) {
+  199 |             reaction._scheduler(reaction);
+  200 |         }
+View compiled
+batchEnd
+.@antv/node_modules/@formily/reactive/esm/reaction.js:165
+  162 | if (BatchCount.value === 0) {
+  163 |     var prevUntrackCount = UntrackCount.value;
+  164 |     UntrackCount.value = 0;
+> 165 |     executePendingReactions();
+      | ^  166 |     executeBatchEndpoints();
+  167 |     UntrackCount.value = prevUntrackCount;
+  168 | }
+View compiled
+reaction
+.@antv/node_modules/@formily/reactive/esm/autorun.js:33
+  30 | finally {
+  31 |     ReactionStack.pop();
+  32 |     reaction._boundary++;
+> 33 |     batchEnd();
+     | ^  34 |     reaction._boundary = 0;
+  35 |     reaction._memos.cursor = 0;
+  36 |     reaction._effects.cursor = 0;
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/reactive/esm/reaction.js:202
+  199 |             reaction._scheduler(reaction);
+  200 |         }
+  201 |         else {
+> 202 |             reaction();
+  203 |         }
+  204 |     });
+  205 | };
+View compiled
+push.../node_modules/@formily/reactive/esm/array.js.ArraySet.batchDelete
+.@antv/node_modules/@formily/reactive/esm/array.js:54
+  51 |         var value = this.value[this.forEachIndex];
+  52 |         this.value.splice(this.forEachIndex, 1);
+  53 |         this.forEachIndex--;
+> 54 |         callback(value);
+     | ^  55 |     }
+  56 | };
+  57 | ArraySet.prototype.clear = function () {
+View compiled
+executePendingReactions
+.@antv/node_modules/@formily/reactive/esm/reaction.js:197
+  194 | export var isScopeBatching = function () { return BatchScope.value; };
+  195 | export var isUntracking = function () { return UntrackCount.value > 0; };
+  196 | export var executePendingReactions = function () {
+> 197 |     PendingReactions.batchDelete(function (reaction) {
+  198 |         if (isFn(reaction._scheduler)) {
+  199 |             reaction._scheduler(reaction);
+  200 |         }
+View compiled
+batchEnd
+.@antv/node_modules/@formily/reactive/esm/reaction.js:165
+  162 | if (BatchCount.value === 0) {
+  163 |     var prevUntrackCount = UntrackCount.value;
+  164 |     UntrackCount.value = 0;
+> 165 |     executePendingReactions();
+      | ^  166 |     executeBatchEndpoints();
+  167 |     UntrackCount.value = prevUntrackCount;
+  168 | }
+View compiled
+fireAction
+.@antv/node_modules/@formily/reactive/esm/autorun.js:119
+  116 |             subscriber(value.currentValue, value.oldValue);
+  117 |     }
+  118 |     finally {
+> 119 |         batchEnd();
+      | ^  120 |     }
+  121 | };
+  122 | var reaction = function () {
+View compiled
+reaction._scheduler
+.@antv/node_modules/@formily/reactive/esm/autorun.js:137
+  134 | reaction._scheduler = function (looping) {
+  135 |     looping();
+  136 |     if (dirtyCheck())
+> 137 |         fireAction();
+      | ^  138 |     value.oldValue = value.currentValue;
+  139 | };
+  140 | reaction._name = realOptions.name;
+View compiled
+(anonymous function)
+.@antv/node_modules/@formily/reactive/esm/reaction.js:199
+  196 | export var executePendingReactions = function () {
+  197 |     PendingReactions.batchDelete(function (reaction) {
+  198 |         if (isFn(reaction._scheduler)) {
+> 199 |             reaction._scheduler(reaction);
+  200 |         }
+  201 |         else {
+  202 |             reaction();
+View compiled
+push.../node_modules/@formily/reactive/esm/array.js.ArraySet.batchDelete
+.@antv/node_modules/@formily/reactive/esm/array.js:54
+  51 |         var value = this.value[this.forEachIndex];
+  52 |         this.value.splice(this.forEachIndex, 1);
+  53 |         this.forEachIndex--;
+> 54 |         callback(value);
+     | ^  55 |     }
+  56 | };
+  57 | ArraySet.prototype.clear = function () {
+View compiled
+executePendingReactions
+.@antv/node_modules/@formily/reactive/esm/reaction.js:197
+  194 | export var isScopeBatching = function () { return BatchScope.value; };
+  195 | export var isUntracking = function () { return UntrackCount.value > 0; };
+  196 | export var executePendingReactions = function () {
+> 197 |     PendingReactions.batchDelete(function (reaction) {
+  198 |         if (isFn(reaction._scheduler)) {
+  199 |             reaction._scheduler(reaction);
+  200 |         }
+View compiled
+batchEnd
+.@antv/node_modules/@formily/reactive/esm/reaction.js:165
+  162 | if (BatchCount.value === 0) {
+  163 |     var prevUntrackCount = UntrackCount.value;
+  164 |     UntrackCount.value = 0;
+> 165 |     executePendingReactions();
+      | ^  166 |     executeBatchEndpoints();
+  167 |     UntrackCount.value = prevUntrackCount;
+  168 | }
+View compiled
+boundary
+.@antv/node_modules/@formily/reactive/esm/internals.js:92
+  89 |         }
+  90 |     }
+  91 |     finally {
+> 92 |         end();
+     | ^  93 |     }
+  94 |     return results;
+  95 | }
+View compiled
+Field.onInput
+.@antv/node_modules/@formily/reactive/esm/internals.js:106
+  103 |         for (var _i = 0; _i < arguments.length; _i++) {
+  104 |             args[_i] = arguments[_i];
+  105 |         }
+> 106 |         return boundary(function () { return callback.apply(context, args); });
+      | ^  107 |     });
+  108 | }
+  109 | return bind;
+View compiled
+_a [as onChange]
+.@antv/node_modules/@formily/react/esm/components/ReactiveField.js:90
+  87 |     for (var _i = 0; _i < arguments.length; _i++) {
+  88 |         args[_i] = arguments[_i];
+  89 |     }
+> 90 |     field.onInput.apply(field, __spreadArray([], __read(args), false));
+     | ^  91 |     (_b = (_a = field.componentProps) === null || _a === void 0 ? void 0 : _a.onChange) === null || _b === void 0 ? void 0 : _b.call.apply(_b, __spreadArray([_a], __read(args), false));
+  92 | }
+  93 | : (_a = field.componentProps) === null || _a === void 0 ? void 0 : _a.onChange;
+View compiled
+onOptionClick
+.@antv/packages/li-p2/dist/esm/components/Formily/FieldSelect/Select/index.js:45
+  42 | if (!props.onChange) return;
+  43 | // 单选
+  44 | if (!isMultiple) {
+> 45 |   props.onChange(val, options !== null && options !== void 0 ? options : []);
+     | ^  46 |   setInternalOpen(false);
+  47 | } else {
+  48 |   // 多选
+View compiled

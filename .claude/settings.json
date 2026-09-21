@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(f:/programfiles/anaconda/envs/kag_demo/python.exe -c ' *)",
+      "Bash(curl -s http://1.94.200.29:3001/api/health)",
+      "Bash(curl -s -o NUL -w \"Frontend: %{http_code}\" http://1.94.200.29:8000/)",
+      "Bash(docker --version)",
+      "Bash(wmic OS get FreePhysicalMemory)",
+      "Bash(mvn compile *)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" npm run build)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('f:/code/Java/L7VP/website/dist/data/china_boundary.json'\\)\\); print\\('type:', d.get\\('type'\\), 'features:', len\\(d.get\\('features',[]\\)\\) if 'features' in d else 'N/A'\\)\")",
+      "Bash(F:/programfiles/anaconda/envs/kag_demo/python.exe -c ' *)",
+      "Bash(tar -tzf l7vp-arm64-deploy.tar.gz)",
+      "Bash(grep -E \"\\(docker-compose|Dockerfile|\\\\.jar$|nginx|\\\\.tar$|china_boundary\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+import type { LayerSchema } from '@antv/li-sdk';
+import { getDatasetFields } from '@antv/li-sdk';
+import { Form } from '@formily/antd-v5';
+import { createForm, onFieldValueChange } from '@formily/core';
+import { useMemoizedFn } from 'ahooks';
+import classNames from 'classnames';
+import { pick } from 'lodash-es';
+import React, { useMemo, useState } from 'react';
+import { useEditorDataset, useEditorService, useEditorState, usePrefixCls } from '../../../../hooks';
+import BaseFormSchemaField from '../BaseFormSchemaField';
+import useStyle from './style';
+import StyleForm from './StyleForm';
+
+export type LayerFormValue = Pick<LayerSchema, 'type' | 'sourceConfig' | 'visConfig'>;
+type LayerStyleFormValue = Pick<LayerSchema, 'sourceConfig' | 'visConfig'>;
+
+type LayerFormProps = {
+  className?: string;
+  config: LayerSchema;
+  onChange: (config: LayerFormValue) => void;
+  /** 图层备注（基础配置里的「图层备注」输入框）→ 落到 layer.metadata.description */
+  onDescriptionChange: (description: string) => void;
+};
+
+const LayerForm: React.FC<LayerFormProps> = ({ className, config, onChange, onDescriptionChange }) => {
+  const prefixCls = usePrefixCls('layer-form');
+  const styles = useStyle();
+  const { state } = useEditorState();
+  const [visType, setVisType] = useState(config.type);
+  const [datasetId, setDatasetId] = useState(config.sourceConfig.datasetId);
+  const editorDataset = useEditorDataset(datasetId);
+  const columns = useMemo(() => (editorDataset ? editorDataset.columns : []), [editorDataset]);
+
+  const [initialStyleValue, setInitialStyleValue] = useState<LayerStyleFormValue>(
+    pick(config, ['sourceConfig', 'visConfig']),
+  );
+
+  const { appService } = useEditorService();
+  const implementLayer = appService.getImplementLayer(visType);
+
+  const sourceList = useMemo(() => {
+    const list = state.datasets.map((item) => ({
+      label: item.metadata.name,
+      value: item.id,
+    }));
+    return list;
+  }, [state.datasets]);
+
+  const datasetFields = useMemo(() => getDatasetFields(columns), [columns]);
+
+  const datasetFieldList = useMemo(() => {
+    return datasetFields.map((item) => {
+      const domain = editorDataset?.getColumnDomain(item.name);
+      return { ...item, domain };
+    });
+  }, [datasetFields, editorDataset]);
+
+  const onFormValuesChange = (visType_: string, datasetId_: string, styleConfig: LayerStyleFormValue) => {
+    if (styleConfig.sourceConfig && datasetId_) {
+      styleConfig.sourceConfig.datasetId = datasetId_;
+    }
+
+    const layerConfig: LayerFormValue = {
+      type: visType_,
+      ...styleConfig,
+    };
+
+    onChange(layerConfig);
+  };
+
+  const handleVisTypeChange = useMemoizedFn((type: string) => {
+    const defaultVisConfig = appService.getImplementLayerDefaultVis(type);
+    const _initialStyleValue: LayerStyleFormValue = {
+      sourceConfig: { datasetId },
+      visConfig: defaultVisConfig,
+    };
+
+    // 更新可视化类型
+    setVisType(type);
+    // 设置表单默认值
+    setInitialStyleValue(_initialStyleValue);
+  });
+
+  const handleStyleFormValuesChange = useMemoizedFn((styleConfig: LayerStyleFormValue) => {
+    onFormValuesChange(visType, datasetId, styleConfig);
+  });
+
+  // 备注改动直接回写图层（用 useMemoizedFn 保证下面 memo 化的 form 里拿到的是最新实现）
+  const handleDescriptionChange = useMemoizedFn((description: string) => {
+    onDescriptionChange(description);
+  });
+
+  // 基础配置表单
+  const baseForm = useMemo(() => {
+    const form = createForm({
+      initialValues: { datasetId, visType, description: config.metadata?.description ?? '' },
+      effects() {
+        // 数据集更新时，同步更新表数据字段
+        onFieldValueChange('datasetId', (field) => {
+          const id = field?.value;
+          setDatasetId(id);
+        });
+        // 可视化类型更新时，同步更新可视化图层表单
+        onFieldValueChange('visType', (field) => {
+          const type = field.value;
+          handleVisTypeChange(type);
+        });
+        // 图层备注更新时，写入 layer.metadata.description
+        onFieldValueChange('description', (field) => {
+          handleDescriptionChange(field.value ?? '');
+        });
+      },
+    });
+
+    return form;
+  }, []);
+
+  return (
+    <div className={classNames(prefixCls, styles.layerForm, className)}>
+      {/* 基础配置，选择数据集和可视化类型 */}
+      <Form
+        form={baseForm}
+        labelCol={8}
+        wrapperCol={16}
+        colon={false}
+        layout="horizontal"
+        labelAlign="left"
+        wrapperAlign="right"
+        feedbackLayout="terse"
+      >
+        <BaseFormSchemaField sourceList={sourceList} />
+      </Form>
+      {/* 坐标配置和样式配置 */}
+      {implementLayer && (
+        <StyleForm
+          initialValues={initialStyleValue}
+          implementLayer={implementLayer}
+          datasetFields={datasetFieldList}
+          onChange={handleStyleFormValuesChange}
+        />
+      )}
+    </div>
+  );
+};
+
+export default LayerForm;

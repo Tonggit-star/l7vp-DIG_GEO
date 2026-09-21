@@ -1,0 +1,41 @@
+# KAG + Neo4j（Linux / Windows，离线 Neo4j 镜像）
+#
+# Neo4j 使用 OpenSPG 配套镜像（勿再从 Docker Hub 拉 neo4j:community）。
+# 启动前在本机加载离线包（在仓库根目录或写绝对路径）:
+#   docker load -i D:/offline-kag-bundle/01_docker_images/openspg-neo4j.tar
+# 镜像名一般为: spg-registry.us-west-1.cr.aliyuncs.com/spg/openspg-neo4j:latest
+#
+# 准备：docker/ 下复制 .env.example 为 .env（默认口令与 OpenSPG 一致 neo4j@openspg）。
+#   cd docker && docker compose up -d --build
+
+# Compose 项目名：决定网络/卷/容器前缀（卷名形如 kag-njupt_neo4j_data）
+name: kag-njupt
+
+# 说明：kag 服务已设置 KAG_PERSIST_SYSTEM_DB_CONFIG=1，以下写入 kag/examples/.kag_runtime/，
+# 随 kag_examples 卷持久化：system_db_config.json、runtime_deploy_env.json、**kb_store.json（知识库列表）**、
+# **rule_bases/<namespace>.json（各库规则与引擎）**、qa_user_sessions.json 等。镜像重建后仍保留；
+# 未设置该变量时 kb_store 留在镜像内 kag_api/，列表会恢复默认。
+#
+# Neo4j 与本地知识库：neo4j_data 卷会保留图库；kag_examples 卷保留 examples 与 kb_store。
+# 若需「图库与空项目完全一致」，可 docker compose down -v 后重建两卷。
+# API 启动时会尝试 DROP DATABASE test；可选 KAG_NEO4J_DROP_ORPHAN_DBS=1 删除 Neo4j 有而 kb_store/examples 无的孤儿库。
+
+services:
+  timescaledb:
+    image: kag-ts-postgis:latest
+    container_name: kag-timescaledb
+    restart: unless-stopped
+    ports:
+      - "${TIMESCALE_PORT:-5432}:5432"
+    environment:
+      TZ: Asia/Shanghai
+      POSTGRES_DB: maritime
+      POSTGRES_USER: kag
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-kag@timescale}
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./init-postgis.sh:/docker-entrypoint-initdb.d/init_postgis.sh:ro
+
+
+volumes:
+  timescale_data:

@@ -1,0 +1,42 @@
+[Builder] projectId changed to: 069856a2-7b20-433b-9020-9fd080283983
+index.tsx:69 [Builder] clearing old project state...
+index.tsx:76 [Builder] project loaded: 未命名_2026-07-13 23:51:14 widgets count: 8
+index.tsx:80 [Builder] layout widget id: AnalysisLayout type: AnalysisLayout
+index.tsx:84 [Builder] widget[1] id=d0fc37fa-e009-409c-8eca-9fb2b08ccf01 type=ZoomControl container.id=AnalysisLayout match=YES
+index.tsx:84 [Builder] widget[2] id=PropertiesPanel type=PropertiesPanel container.id=AnalysisLayout match=YES
+index.tsx:84 [Builder] widget[3] id=dfac82e8-d480-4d3d-8303-c79814ed19fc type=LayerPopup container.id=AnalysisLayout match=YES
+index.tsx:84 [Builder] widget[4] id=356f36e1-db31-4e88-98a7-06781d01f277 type=FullscreenControl container.id=AnalysisLayout match=YES
+index.tsx:84 [Builder] widget[5] id=c3606ac8-c2b5-4f55-a19b-bd70e96a94e3 type=LegendWidget container.id=AnalysisLayout match=YES
+index.tsx:84 [Builder] widget[6] id=3aaf2b6f-c4b0-4354-a7ce-dc4c70018c03 type=MouseLocationControl container.id=AnalysisLayout match=YES
+index.tsx:84 [Builder] widget[7] id=2a7337f2-8345-4453-9fae-fc4a5ac05a23 type=ExportImageControl container.id=AnalysisLayout match=YES
+editor-dataset-manager.js:135 [EditorDataset.setSchema] schema: {"id":"adceb66e-5c2e-410e-9533-eea3c2491bfb","type":"raster-tile","metadata":{"name":"高德标准地图","description":"瓦片底图"}}
+widget.js:30 [resolveChildrenMap] total widgets: 8 containers: [{…}]
+widget.js:60 [resolveChildrenMap] widget id=d0fc37fa-e009-409c-8eca-9fb2b08ccf01 type=ZoomControl -> container.id=AnalysisLayout slot=controls containerExists=YES
+widget.js:60 [resolveChildrenMap] widget id=PropertiesPanel type=PropertiesPanel -> container.id=AnalysisLayout slot=controls containerExists=YES
+widget.js:60 [resolveChildrenMap] widget id=dfac82e8-d480-4d3d-8303-c79814ed19fc type=LayerPopup -> container.id=AnalysisLayout slot=controls containerExists=YES
+widget.js:60 [resolveChildrenMap] widget id=356f36e1-db31-4e88-98a7-06781d01f277 type=FullscreenControl -> container.id=AnalysisLayout slot=controls containerExists=YES
+widget.js:60 [resolveChildrenMap] widget id=c3606ac8-c2b5-4f55-a19b-bd70e96a94e3 type=LegendWidget -> container.id=AnalysisLayout slot=controls containerExists=YES
+widget.js:60 [resolveChildrenMap] widget id=3aaf2b6f-c4b0-4354-a7ce-dc4c70018c03 type=MouseLocationControl -> container.id=AnalysisLayout slot=controls containerExists=YES
+widget.js:60 [resolveChildrenMap] widget id=2a7337f2-8345-4453-9fae-fc4a5ac05a23 type=ExportImageControl -> container.id=AnalysisLayout slot=controls containerExists=YES
+Warning: findDOMNode is deprecated and will be removed in the next major release. Instead, add a ref directly to the element you want to reference. Learn more about using refs safely here:
+
+[Builder] projectId changed to: d4bdc078-565b-4563-acd1-6bb51364d74f
+index.tsx:69 [Builder] clearing old project state...
+index.tsx:76 [Builder] project loaded: 未命名_2026-07-13 23:52:28 widgets count: 8
+index.tsx:80 [Builder] layout widget id: 2c7d3ca9-0014-42e0-9cbc-f8d573c2111a type: AnalysisLayout
+index.tsx:84 [Builder] widget[1] id=85ad2911-655c-4c59-9321-43ac538f0d66 type=ZoomControl container.id=AnalysisLayout match=NO -> ORPHANED!
+index.tsx:84 [Builder] widget[2] id=e8301fee-da23-4858-b071-f9f02cdefacc type=PropertiesPanel container.id=AnalysisLayout match=NO -> ORPHANED!
+index.tsx:84 [Builder] widget[3] id=6ebea5b6-9fa4-461d-9f5b-f38b2beda3c5 type=LayerPopup container.id=AnalysisLayout match=NO -> ORPHANED!
+index.tsx:84 [Builder] widget[4] id=cd65f979-427a-4662-9ef5-2a9ed851090e type=FullscreenControl container.id=AnalysisLayout match=NO -> ORPHANED!
+index.tsx:84 [Builder] widget[5] id=95541361-c461-436f-9b2e-0502c34b14b7 type=LegendWidget container.id=AnalysisLayout match=NO -> ORPHANED!
+index.tsx:84 [Builder] widget[6] id=49b2e7c2-44a2-46f8-bab7-07da323eedc9 type=MouseLocationControl container.id=AnalysisLayout match=NO -> ORPHANED!
+index.tsx:84 [Builder] widget[7] id=39fec85e-04b8-4ebe-8058-1e92b2aa428e type=ExportImageControl container.id=AnalysisLayout match=NO -> ORPHANED!
+editor-dataset-manager.js:135 [EditorDataset.setSchema] schema: {"id":"f12be622-9392-4272-abb6-7ef5402c672a","type":"raster-tile","metadata":{"name":"高德标准地图","description":"瓦片底图"}}
+widget.js:30 [resolveChildrenMap] total widgets: 8 containers: [{…}]
+widget.js:60 [resolveChildrenMap] widget id=85ad2911-655c-4c59-9321-43ac538f0d66 type=ZoomControl -> container.id=AnalysisLayout slot=controls containerExists=NO -> ORPHAN!
+widget.js:60 [resolveChildrenMap] widget id=e8301fee-da23-4858-b071-f9f02cdefacc type=PropertiesPanel -> container.id=AnalysisLayout slot=controls containerExists=NO -> ORPHAN!
+widget.js:60 [resolveChildrenMap] widget id=6ebea5b6-9fa4-461d-9f5b-f38b2beda3c5 type=LayerPopup -> container.id=AnalysisLayout slot=controls containerExists=NO -> ORPHAN!
+widget.js:60 [resolveChildrenMap] widget id=cd65f979-427a-4662-9ef5-2a9ed851090e type=FullscreenControl -> container.id=AnalysisLayout slot=controls containerExists=NO -> ORPHAN!
+widget.js:60 [resolveChildrenMap] widget id=95541361-c461-436f-9b2e-0502c34b14b7 type=LegendWidget -> container.id=AnalysisLayout slot=controls containerExists=NO -> ORPHAN!
+widget.js:60 [resolveChildrenMap] widget id=49b2e7c2-44a2-46f8-bab7-07da323eedc9 type=MouseLocationControl -> container.id=AnalysisLayout slot=controls containerExists=NO -> ORPHAN!
+widget.js:60 [resolveChildrenMap] widget id=39fec85e-04b8-4ebe-8058-1e92b2aa428e type=ExportImageControl -> container.id=AnalysisLayout slot=controls containerExists=NO -> ORPHAN!

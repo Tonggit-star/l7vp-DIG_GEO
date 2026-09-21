@@ -1,0 +1,233 @@
+{
+    "metadata": {
+        "projectId": "8cdf7d26-8061-47e5-9536-8a37ba1b272c",
+        "name": "未命名_2026-07-13 23:13:48",
+        "description": "无描述信息",
+        "createTime": "2026-07-13 23:13:48",
+        "updateTime": "2026-07-13 23:15:29",
+        "thumbnail": null,
+        "assetPackageIds": [
+            "@antv/li-core-assets",
+            "@antv/li-analysis-assets"
+        ]
+    },
+    "datasets": [
+        {
+            "id": "639a9c9c-a971-4ca5-a532-ede2758bcd33",
+            "name": null,
+            "type": "raster-tile",
+            "createTime": "2026-07-13 23:13:48",
+            "properties": {
+                "type": "xyz-tile",
+                "url": "https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}",
+                "minZoom": 0,
+                "maxZoom": 18
+            },
+            "metadata": {
+                "name": "高德标准地图",
+                "description": "瓦片底图"
+            },
+            "columns": []
+        }
+    ],
+    "spec": {
+        "map": {
+            "basemap": "Map",
+            "config": {
+                "zoom": 3,
+                "center": [
+                    120.153576,
+                    30.287459
+                ],
+                "pitch": 0,
+                "bearing": 0,
+                "style": "dark",
+                "WebGLParams": {
+                    "preserveDrawingBuffer": true
+                }
+            },
+            "logoPosition": "leftbottom",
+            "logoVisible": false
+        },
+        "layers": [
+            {
+                "id": "be9ea827-6c96-4c2c-8311-ebe71fed3b23",
+                "name": null,
+                "type": "TileLayer",
+                "dataset": "639a9c9c-a971-4ca5-a532-ede2758bcd33",
+                "order": 0,
+                "metadata": {
+                    "name": "高德标准地图"
+                },
+                "sourceConfig": {
+                    "datasetId": "639a9c9c-a971-4ca5-a532-ede2758bcd33",
+                    "parser": {
+                        "type": "rasterTile"
+                    }
+                },
+                "visConfig": {
+                    "visible": true,
+                    "style": {
+                        "opacity": 1
+                    },
+                    "minZoom": 0,
+                    "maxZoom": 18,
+                    "blend": "normal"
+                }
+            }
+        ],
+        "widgets": [
+            {
+                "id": "AnalysisLayout",
+                "name": null,
+                "type": "AnalysisLayout",
+                "containerId": null,
+                "slot": null,
+                "order": 0,
+                "metadata": {
+                    "name": "布局组件"
+                },
+                "properties": {
+                    "showFloatPanel": false,
+                    "showSidePanel": false,
+                    "showBottomPanel": false
+                }
+            },
+            {
+                "id": "62cb5f5d-23ab-4ca0-9293-03bce19003aa",
+                "name": null,
+                "type": "ZoomControl",
+                "containerId": "AnalysisLayout",
+                "slot": "controls",
+                "order": 1,
+                "container": {
+                    "id": "AnalysisLayout",
+                    "slot": "controls"
+                },
+                "metadata": {
+                    "name": "缩放器"
+                },
+                "properties": {
+                    "position": "bottomright"
+                }
+            },
+            {
+                "id": "PropertiesPanel",
+                "name": null,
+                "type": "PropertiesPanel",
+                "containerId": "AnalysisLayout",
+                "slot": "controls",
+                "order": 2,
+                "container": {
+                    "id": "AnalysisLayout",
+                    "slot": "controls"
+                },
+                "metadata": {
+                    "name": "属性面板"
+                },
+                "properties": {
+                    "isOpen": false,
+                    "items": [
+                        {
+                            "layerId": "be9ea827-6c96-4c2c-8311-ebe71fed3b23",
+                            "datasetId": "639a9c9c-a971-4ca5-a532-ede2758bcd33",
+                            "enable": false
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "e0505c24-b886-45fe-966c-1a8bb30ed459",
+                "name": null,
+                "type": "LayerPopup",
+                "containerId": "AnalysisLayout",
+                "slot": "controls",
+                "order": 3,
+                "container": {
+                    "id": "AnalysisLayout",
+                    "slot": "controls"
+                },
+                "metadata": {
+                    "name": "信息框"
+                },
+                "properties": {
+                    "isOpen": true,
+                    "trigger": "hover",
+                    "items": []
+                }
+            },
+            {
+                "id": "39137d72-35af-4824-8ff4-4c212476c67b",
+                "name": null,
+                "type": "FullscreenControl",
+                "containerId": "AnalysisLayout",
+                "slot": "controls",
+                "order": 4,
+                "container": {
+                    "id": "AnalysisLayout",
+                    "slot": "controls"
+                },
+                "metadata": {
+                    "name": "全屏切换"
+                },
+                "properties": {
+                    "position": "topright"
+                }
+            },
+            {
+                "id": "58ae4fee-5342-476d-a8e0-ef82ee606965",
+                "name": null,
+                "type": "LegendWidget",
+                "containerId": "AnalysisLayout",
+                "slot": "controls",
+                "order": 5,
+                "container": {
+                    "id": "AnalysisLayout",
+                    "slot": "controls"
+                },
+                "metadata": {
+                    "name": "图例"
+                },
+                "properties": {
+                    "position": "topright"
+                }
+            },
+            {
+                "id": "9b93b00e-6121-4f04-8d28-06f54a3c61ae",
+                "name": null,
+                "type": "MouseLocationControl",
+                "containerId": "AnalysisLayout",
+                "slot": "controls",
+                "order": 6,
+                "container": {
+                    "id": "AnalysisLayout",
+                    "slot": "controls"
+                },
+                "metadata": {
+                    "name": "光标经纬度"
+                },
+                "properties": {
+                    "position": "leftbottom"
+                }
+            },
+            {
+                "id": "99a4fa75-ca50-4042-a9b7-91b4e7bbe206",
+                "name": null,
+                "type": "ExportImageControl",
+                "containerId": "AnalysisLayout",
+                "slot": "controls",
+                "order": 7,
+                "container": {
+                    "id": "AnalysisLayout",
+                    "slot": "controls"
+                },
+                "metadata": {
+                    "name": "地图截图"
+                },
+                "properties": {
+                    "position": "topright"
+                }
+            }
+        ]
+    }
+}

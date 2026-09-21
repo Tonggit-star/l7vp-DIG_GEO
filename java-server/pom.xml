@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.antv</groupId>
+    <artifactId>l7vp-server</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>L7VP Server</name>
+    <description>L7VP后端服务 - 达梦数据库存储</description>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.14</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <java.version>1.8</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- 覆盖 Spring Boot 2.7.14 自带的 Lombok 版本，兼容 JDK 17/21/23 -->
+        <lombok.version>1.18.36</lombok.version>
+        <!-- =false: 每次构建自动重建 flink-job 并内嵌；=true 跳过（作业jar已存在时开发加速用 -Dflink.job.skip=true） -->
+        <flink.job.skip>false</flink.job.skip>
+    </properties>
+
+    <dependencies>
+        <!-- Spring Boot Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Boot JDBC -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- Spring Boot WebSocket（流式数据集实时推送） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- Apache HttpClient：JDK HttpURLConnection 不支持 PATCH（Flink 作业取消走 PATCH /jobs/{jid}?mode=cancel），需换 request factory -->
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+        </dependency>
+
+        <!-- 达梦JDBC驱动（system scope，放在模块 lib 目录下，相对路径可移植） -->
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver8</artifactId>
+            <version>8.1.1.128</version>
+            <scope>system</scope>
+            <!-- 相对模块根目录；部署时把驱动 jar 放到 java-server/lib/ 即可 -->
+            <systemPath>${project.basedir}/lib/DmJdbcDriver8.jar</systemPath>
+        </dependency>
+
+        <!-- MySQL / Doris JDBC 驱动（Doris 走 MySQL 协议，提供 com.mysql.cj.jdbc.Driver） -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.33</version>
+        </dependency>
+
+        <!-- PostgreSQL / TimescaleDB 驱动：历史轨迹查询直连时序库。
+             注意 flink-job 子工程里那份 PG 驱动是交给 Flink 集群用的，不进本进程 classpath，故此处必须单独声明。 -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.6.0</version>
+        </dependency>
+
+        <!-- JSON处理 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.1.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.8.1</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <includeSystemScope>true</includeSystemScope>
+                </configuration>
+            </plugin>
+            <!-- 构建期自动打包 flink-job 并把产物内嵌到 classpath，使最终仍只有一个部署 jar。
+                 跳过：mvn package -Dflink.job.skip=true -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <skip>${flink.job.skip}</skip>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>embed-flink-job</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <property name="flinkJobDir" value="${project.basedir}/flink-job"/>
+                                <property name="flinkJobJar" value="${flinkJobDir}/target/l7vp-stream-job.jar"/>
+                                <!-- Windows 下 mvn 命令为 mvn.cmd -->
+                                <condition property="mvnExec" value="mvn.cmd" else="mvn">
+                                    <os family="windows"/>
+                                </condition>
+                                <mkdir dir="${flinkJobDir}"/>
+                                <echo message="[embed-flink-job] 构建 flink-job 并内嵌进 server jar... (跳过: mvn -Dflink.job.skip=true)"/>
+                                <exec executable="${mvnExec}" failonerror="true" dir="${flinkJobDir}">
+                                    <arg value="-q"/>
+                                    <arg value="-DskipTests"/>
+                                    <arg value="package"/>
+                                </exec>
+                                <mkdir dir="${project.build.outputDirectory}/flink-job"/>
+                                <copy file="${flinkJobJar}"
+                                      tofile="${project.build.outputDirectory}/flink-job/l7vp-stream-job.jar"
+                                      overwrite="true" failonerror="true"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
