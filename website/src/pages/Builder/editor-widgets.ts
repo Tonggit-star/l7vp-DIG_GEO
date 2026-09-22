@@ -17,6 +17,7 @@ import AgentConfigBridge from './widgets/AgentConfigBridge';
 import BackToProjects from './widgets/BackToProjects';
 import DatasetPreview from './widgets/DatasetPreview';
 import Export from './widgets/Export';
+import MapRefresh from './widgets/MapRefresh';
 import Screenshot from './widgets/Screenshot';
 import Share from './widgets/Share';
 import StreamDataset from './widgets/StreamDataset';
@@ -47,6 +48,7 @@ export const editorWidgetsWithBuilder: ImplementEditorWidget[] = [
   // TilesetsDataset,
   Screenshot,
   MapSetting,
+  MapRefresh,
   Share,
   BackToProjects,
 ];

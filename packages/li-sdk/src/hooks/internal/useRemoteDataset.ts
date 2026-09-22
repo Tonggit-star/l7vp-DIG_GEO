@@ -74,11 +74,25 @@ export function useRemoteDataset(datasetSchema: RemoteDatasetSchema, pickFilter?
     return service(serviceParams);
   };
 
+  // 刷新周期（秒）：>0 时启用轮询，每到周期重跑一次 queryFn，即重新从数据源拉最新数据。
+  //
+  // 预览页(/app)与嵌入页(/share)走的就是这条路径 —— 编辑器侧（li-editor 的 editor-dataset-manager）
+  // 早就认 metadata.refreshInterval 了，但**运行时不认**的话，「在编辑器里配好的刷新间隔」
+  // 在真正看地图的那两页是不生效的，表现为「设置明明保存了却不动」。
+  const refreshIntervalSec = Number((datasetSchema.metadata as any)?.refreshInterval) || 0;
+  const polling = refreshIntervalSec > 0;
+
   const { data } = useQuery(
     {
       queryKey: [implementService.metadata.name, filter, datasetProperties],
       queryFn,
       placeholderData: [],
+      refetchInterval: polling ? refreshIntervalSec * 1000 : false,
+      // 半周期内视为新鲜，避免同一份数据被重复请求
+      staleTime: polling ? (refreshIntervalSec / 2) * 1000 : 0,
+      // 大屏/嵌入场景页面常年处于后台标签，而 react-query 默认「页面不可见就暂停轮询」，
+      // 那样地图恰恰在最需要它刷新的时候停下，所以这里显式打开。
+      refetchIntervalInBackground: true,
     },
     queryServiceClient,
   );

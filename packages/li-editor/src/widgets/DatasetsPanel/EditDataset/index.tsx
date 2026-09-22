@@ -25,6 +25,20 @@ type EditDatasetProps = {
   onClose: () => void;
 };
 
+/** 刷新间隔预设档位（秒），0 = 不自动刷新 */
+const REFRESH_PRESETS: { value: number; label: string }[] = [
+  { value: 0, label: '不自动刷新' },
+  { value: 1, label: '每 1 秒' },
+  { value: 5, label: '每 5 秒' },
+  { value: 10, label: '每 10 秒' },
+  { value: 30, label: '每 30 秒' },
+  { value: 60, label: '每 1 分钟' },
+  { value: 300, label: '每 5 分钟' },
+];
+const REFRESH_PRESET_VALUES = REFRESH_PRESETS.map((p) => p.value);
+/** 「自定义…」的哨兵值，负数不会与真实秒数撞上 */
+const REFRESH_CUSTOM = -1;
+
 /**
  * DatasetSchema 是 local / remote / 矢量瓦片 / 栅格瓦片 的联合类型，后两者没有 columns；
  * 本弹窗只处理「有列定义」的前两类，故显式交叉一个可选 columns，避免联合类型取属性报错。
@@ -348,15 +362,44 @@ const EditDataset = ({ datasetId, visible, onClose }: EditDatasetProps) => {
             {isRemote && (
               <Form.Item
                 label="刷新间隔"
-                tooltip="单位秒，0 表示不自动刷新"
+                tooltip="每到该间隔就重新从数据源拉取最新数据并重绘图层（0 表示不自动刷新）。设置随项目保存，预览页与嵌入页同样生效"
                 style={{ marginBottom: 16 }}
               >
-                <InputNumber
-                  min={0}
-                  value={refreshInterval}
-                  onChange={(v) => setRefreshInterval(Number(v) || 0)}
-                  style={{ width: 200 }}
-                />
+                <Space>
+                  <Select
+                    style={{ width: 150 }}
+                    value={
+                      REFRESH_PRESET_VALUES.includes(refreshInterval ?? 0)
+                        ? refreshInterval ?? 0
+                        : REFRESH_CUSTOM
+                    }
+                    onChange={(v) => {
+                      if (v === REFRESH_CUSTOM) {
+                        // 切到自定义时给一个非预设初值，否则 Select 会立刻弹回预设档位
+                        setRefreshInterval(
+                          REFRESH_PRESET_VALUES.includes(refreshInterval ?? 0)
+                            ? 15
+                            : refreshInterval,
+                        );
+                      } else {
+                        setRefreshInterval(Number(v) || 0);
+                      }
+                    }}
+                    options={[
+                      ...REFRESH_PRESETS,
+                      { value: REFRESH_CUSTOM, label: '自定义…' },
+                    ]}
+                  />
+                  {!REFRESH_PRESET_VALUES.includes(refreshInterval ?? 0) && (
+                    <InputNumber
+                      min={1}
+                      max={86400}
+                      value={refreshInterval}
+                      onChange={(v) => setRefreshInterval(Number(v) || 0)}
+                      addonAfter="秒"
+                    />
+                  )}
+                </Space>
               </Form.Item>
             )}
           </Form>
