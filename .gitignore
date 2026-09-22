@@ -14,6 +14,15 @@ package-lock.json
 es/
 lib/
 
+# 例外：后端达梦驱动投放目录 java-server/lib/
+# 上面那条 lib/ 会命中任意层级的 lib 目录，导致 java-server/lib/ 整体被忽略、
+# 连说明文件都提交不了（每个人 clone 下来都卡在同一个构建失败上）。
+# 规则顺序有讲究：必须先否定【目录本身】，git 才会往里看；再单独忽略目录里的 jar。
+# 达梦 JDBC 驱动是商业授权文件，且本仓库为公开仓库，因此驱动 jar 永不入库，
+# 由开发者按 java-server/lib/README.md 自行获取。
+!/java-server/lib/
+/java-server/lib/*.jar
+
 # misc
 .DS_Store
 
@@ -33,6 +42,15 @@ lerna-debug.log
 
 master/
 java-server/target/
+# flink-job 是独立 Maven 子工程，构建产物同样不该入库。
+# 注意：上面那行是带锚定的 `java-server/target/`，【匹配不到】这个子目录——
+# 之前正是因此让 14 个编译产物（含 19MB 的 shaded jar）进了版本库，
+# 而且任何人构建一次就会产生一堆二进制 diff。
+java-server/flink-job/target/
+# Maven 本地仓库（本机构建时用 -Dmaven.repo.local 指到这里，避免写 ~/.m2）
+.mvnrepo/
+# npm 缓存（沙箱/CI 里 ~/.npm 不可写时把 npm_config_cache 指到这里，别把缓存提交进库）
+.npmcache/
 deploy/
 node_modules/
 *.iml

@@ -66,19 +66,26 @@ l7vp_map.show()
 
 Learn more 👉 [PyL7VP](https://github.com/antvis/L7VP/tree/master/bindings/pyl7vp)
 
-## 🔬 Local Case
+## 🔬 Run Locally
+
+The runnable application is `website/` (the `examples/` directory was removed from this fork).
+See `CLAUDE.md` for the full development and deployment guide.
 
 ### 📦 Installation
 
 ```bash
-cd examples/builder && yarn install
+npm install
 ```
 
 ### 💻 Start Up
 
 ```bash
-yarn run dev
+npm run start:website    # dev server on :8000
 ```
+
+> ⚠️ The dev proxy forwards `/api` to `localhost:3001`, while the backend defaults to
+> `server.port=3003`. Start the backend with `--server.port=3001`, or change the proxy in
+> `website/config/config.ts`, otherwise every API call will fail.
 
 ## 🔨 Develop Website
 

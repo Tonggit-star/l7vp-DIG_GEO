@@ -66,19 +66,26 @@ l7vp_map.show()
 
 更多了解 👉 [PyL7VP](https://github.com/antvis/L7VP/tree/master/bindings/pyl7vp)
 
-## 🔬 本地示例
+## 🔬 本地运行
+
+可运行的应用本体是 `website/`（本分支已移除 `examples/` 目录）。
+完整的开发与部署说明见 `CLAUDE.md`。
 
 ### 📦 安装依赖
 
 ```bash
-cd examples/builder && yarn install
+npm install
 ```
 
-### 💻 启动示例
+### 💻 启动
 
 ```bash
-yarn run dev
+npm run start:website    # dev server，默认 8000
 ```
+
+> ⚠️ dev 代理把 `/api` 转发到 `localhost:3001`，而后端默认是 `server.port=3003`。
+> 启动后端时加 `--server.port=3001`，或改 `website/config/config.ts` 里的代理，
+> 否则所有接口调用都会失败。
 
 ## 🔨 研发站点
 

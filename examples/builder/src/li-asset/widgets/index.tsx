@@ -1,1 +1,0 @@
-export { DataseInfor } from './DataseInfor';
