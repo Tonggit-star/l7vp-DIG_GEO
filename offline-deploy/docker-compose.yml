@@ -1,0 +1,198 @@
+# L7VP 单机编排：应用 + 时序库 + Flink
+#
+# 设计要点（改之前先读）：
+#
+# 1) 容器之间一律用【service 名】互访：flink:8081 / l7vp:3001 / timescaledb:5432。
+#    DNS 只保证 service 名可解析，container_name 不保证 —— 别改回 localhost。
+#
+# 2) 时序库与 Flink 归到 profile "full"，【默认不启动】：
+#      docker compose up -d              → 只起 l7vp（默认，够日常开发与界面验证）
+#      docker compose --profile full up -d  → 连时序库和 Flink 一起起
+#    它们都是可选依赖（见 README「依赖矩阵」），不起照样能跑完整应用，
+#    只是「右键 → 历史轨迹」和流式数据集不可用。
+#    ⚠️ 别用 depends_on 让 l7vp 依赖它们——实测会导致 `up -d l7vp` 仍去创建并启动
+#       时序库，再撞上宿主机 5432 被占而整条命令失败。profile 才是正确做法。
+#
+# 3) 达梦【不在本编排内】：达梦不提供公开 Docker 镜像，只能用官网下载的 tar 包
+#    docker load 进来，或者用一台现成的达梦。这里通过 DM_HOST/DM_PORT 指向它，
+#    Linux 上用 host.docker.internal 借 extra_hosts 映射到宿主机。
+#
+# 4) .env 里的变量只用于替换本文件里的 ${...}，【不会】自动变成容器环境变量。
+#    要进容器必须在下面的 environment: 里显式引用。
+
+name: l7vp
+
+services:
+
+  # ---------------------------------------------------------------- 应用本体
+  l7vp:
+    image: ${L7VP_IMAGE:-l7vp-server:1.0.0}
+    container_name: l7vp-server
+    restart: unless-stopped
+    # 刻意【不写 depends_on】。曾经写成 depends_on timescaledb(required:false)，
+    # 结果 `up -d l7vp` 仍会把时序库一起创建并启动，再撞上宿主机 5432 被占而整条命令失败。
+    # 现在时序库/Flink 都归到 profile "full"，默认不参与；它们的就绪与否不影响应用启动。
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+
+      # 容器内 HTTP 端口。jar 内置是 3003，这里覆盖成 3001（与镜像 EXPOSE 一致）。
+      SERVER_PORT: "3001"
+      # WebSocket 端口（流式数据集）。留空则与 HTTP 同端口。
+      L7VP_WS_PORT: "3002"
+      # 流式推送鉴权令牌；留空=不强制鉴权（仅限内网）
+      L7VP_STREAM_PUSH_TOKEN: ${L7VP_STREAM_PUSH_TOKEN:-}
+
+      # ---- 达梦（唯一硬依赖）----
+      # 注意：SET SCHEMA DIG_GEO 写在 jar 内置配置里，覆盖下面三项不会顶掉它，
+      #       所以不需要（也不建议）在这里设 spring.datasource.hikari.connection-init-sql
+      #       —— 那个属性名带连字符，env 形式极易拼错且拼错不报错。
+      #
+      # ⚠️ DM_HOST 一定要写【达梦所在机器的 IP】，不要用 host.docker.internal。
+      #    实测（2026-09，WSL2 + Docker）：同一台达梦，两条路径结果相反 ——
+      #      WSL 宿主直接连 192.168.1.35:5236  → 不通
+      #      容器内  连     192.168.1.35:5236  → 通
+      #    宿主机自身到不了那个网段，容器走 Docker 的 NAT 反而能到。
+      #    写 host.docker.internal 会指向「连不通的宿主机」，表现为连接超时。
+      SPRING_DATASOURCE_URL: jdbc:dm://${DM_HOST:-192.168.1.35}:${DM_PORT:-5236}
+      SPRING_DATASOURCE_USERNAME: ${DM_USER:-SYSDBA}
+      # 口令不设默认值：必须来自 .env（已被 .gitignore 忽略），避免把凭据写进版本库。
+      # 没设会在 compose 解析阶段直接报错并给出下面的提示，而不是静默用一个占位口令去连。
+      SPRING_DATASOURCE_PASSWORD: ${DM_PASSWORD:?未设置 DM_PASSWORD，请 cp .env.example .env 并填写达梦口令}
+
+      # ---- 登录模式：local=免登录本地开放访问（不依赖中台 SSO）----
+      # 改成 sso 需要同时配好 ZHONGTAI_BASE_URL 与 OAuth 客户端凭据
+      L7VP_AUTH_MODE: ${L7VP_AUTH_MODE:-local}
+      ZHONGTAI_BASE_URL: ${ZHONGTAI_BASE_URL:-http://10.16.1.6:8081}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:3003}
+
+      # ---- Flink（可选）----
+      # 用 service 名而非 localhost：集群在另一个容器里
+      FLINK_CLUSTER_URL: http://flink:8081
+      FLINK_AUTO_START: ${FLINK_AUTO_START:-false}
+      # 集群侧要能反向访问到本服务（作业回推数据用），必须指向 service 名
+      FLINK_PUSH_BASE_URL: http://l7vp:3001
+
+      # ---- 时序库（可选，历史轨迹）----
+      FLINK_TSDB_ENABLED: ${FLINK_TSDB_ENABLED:-true}
+      FLINK_TSDB_URL: jdbc:postgresql://timescaledb:5432/${TSDB_DB:-maritime}
+      FLINK_TSDB_USER: ${TSDB_USER:-kag}
+      FLINK_TSDB_PASSWORD: ${TSDB_PASSWORD:-kag@timescale}
+      FLINK_TSDB_TABLE: ${TSDB_TABLE:-stream_events}
+
+      # 让 /opt/l7vp/web/config.js（挂载进来的前端运行时配置）生效。
+      # 用命令行参数而不是环境变量：该属性名带连字符，env 形式有歧义（见 README）。
+      JAVA_OPTS: -Dspring.web.resources.static-locations=file:/opt/l7vp/web/,classpath:/META-INF/resources/,classpath:/static/
+    ports:
+      - "${L7VP_HTTP_PORT:-3003}:3001"
+      - "${L7VP_WS_PORT_HOST:-3002}:3002"
+    volumes:
+      # Spring Boot 外部配置目录（相对 WORKDIR /opt/l7vp）。优先级高于 jar 内置配置。
+      - ./config:/opt/l7vp/config:ro
+      # 前端运行时配置 config.js。浏览器读不到环境变量，改底图/wsPort 只能改这个文件。
+      - ./web:/opt/l7vp/web:ro
+      # 图标库与缩略图：会写入，必须可写，不要加 :ro
+      - ./data/icons:/opt/l7vp/icons
+      - ./data/thumbnails:/opt/l7vp/thumbnails
+    extra_hosts:
+      # 让容器能用 host.docker.internal 指到宿主机（Linux 必需，Mac/Win 自带）
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      # ⚠️ /api/health 是硬编码返回 ok 的，【不碰数据库】。
+      #    它只证明进程活着，不证明达梦连得上 —— 达梦挂了这里照样 healthy。
+      #    要判「功能可用」得探一个真正走库的接口，比如 /api/projects。
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3001/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # 时序库（可选，属于 profile "full"）
+  # 只有需要「右键 → 历史轨迹」或流式数据落库时才起它：
+  #   docker compose --profile full up -d
+  timescaledb:
+    profiles: ["full"]
+    image: ${TSDB_IMAGE:-timescale/timescaledb-ha:pg17}
+    container_name: timescaledb-l7vp
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      POSTGRES_DB: ${TSDB_DB:-maritime}
+      POSTGRES_USER: ${TSDB_USER:-kag}
+      POSTGRES_PASSWORD: ${TSDB_PASSWORD:-kag@timescale}
+    ports:
+      - "${TSDB_PORT:-5432}:5432"
+    volumes:
+      # ⚠️ timescaledb-ha 的 PGDATA 是 /home/postgres/pgdata/data，
+      #    卷要挂在上一层 /home/postgres/pgdata，挂 /var/lib/postgresql/data 是无效的。
+      - timescale_data:/home/postgres/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TSDB_USER:-kag} -d ${TSDB_DB:-maritime}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  # ------------------------------------------------------- Flink 集群（可选）
+  # 流式数据集（Kafka → Flink → 回推本服务 → WebSocket）才需要。
+  # ⚠️ 作业 jar 是按 Flink 1.17.2 编译的，集群版本要跟它对齐，别用 1.18。
+  #
+  # 说明：官方 flink 镜像一个容器只跑一个角色，且默认 CMD 是 help（会直接退出），
+  # 所以这里用标准的 JobManager + TaskManager 两个 service。
+  # （archive 里那份单容器 JM+TM 的写法没有传 command，在这版镜像上起不来。）
+  flink:
+    profiles: ["full"]
+    image: ${FLINK_IMAGE:-flink:1.17.2-scala_2.12}
+    container_name: flink-l7vp
+    restart: unless-stopped
+    command: jobmanager
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink
+        rest.address: 0.0.0.0
+        jobmanager.memory.process.size: 1600m
+    ports:
+      - "${FLINK_UI_PORT:-8081}:8081"   # Web UI + REST API
+      - "${FLINK_RPC_PORT:-6123}:6123"  # JobManager RPC
+    volumes:
+      - flink-logs:/opt/flink/log
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      # 镜像里没有 curl，用 bash 内建 /dev/tcp 探活
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081' 2>/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  flink-taskmanager:
+    profiles: ["full"]
+    image: ${FLINK_IMAGE:-flink:1.17.2-scala_2.12}
+    container_name: flink-taskmanager-l7vp
+    restart: unless-stopped
+    command: taskmanager
+    depends_on:
+      - flink
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      JOB_MANAGER_RPC_ADDRESS: flink
+      TASK_MANAGER_NUMBER_OF_TASK_SLOTS: ${FLINK_TASK_SLOTS:-3}
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink
+        taskmanager.memory.process.size: 1728m
+    volumes:
+      - flink-logs:/opt/flink/log
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  # 时序库数据卷名钉死为旧名，衔接既有数据（stream_events 历史轨迹表），不丢数据。
+  # docker compose down 不删卷；只有 -v 才删。
+  timescale_data:
+    name: ${TSDB_VOLUME_NAME:-kag-njupt_timescale_data}
+  flink-logs:

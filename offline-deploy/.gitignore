@@ -1,0 +1,19 @@
+# 构建产物：由 build-image.sh 从 ../java-server 复制进来，不入库
+app/
+
+# 导出的离线镜像包
+dist/
+
+# 运行时数据（图标库、缩略图），会持续增长，不入库。
+# 只忽略目录【内容】而不是目录本身，这样 .gitkeep 能入库、
+# 新 clone 下来目录就已存在，compose 挂载不会由 Docker 以 root 身份凭空创建。
+data/icons/*
+!data/icons/.gitkeep
+data/thumbnails/*
+!data/thumbnails/.gitkeep
+
+# 本地环境变量（含达梦口令），只提交 .env.example
+.env
+
+# 某些受限环境下 buildx 无法写 /root/.docker 时用的本地 DOCKER_CONFIG
+.docker/

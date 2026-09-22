@@ -1,0 +1,8 @@
+# 构建上下文只保留 app/（jar + schema.sql）。
+# Dockerfile 本身由 docker 单独读取，不受此处影响。
+# offline-deploy/ 下的其余东西（脚本、配置、离线包、README）都不该进上下文，
+# 否则每改一次配置就会让镜像层缓存失效、白白重传几十 MB。
+
+*
+!app
+!app/**
