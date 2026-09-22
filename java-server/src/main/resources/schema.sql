@@ -297,9 +297,46 @@ COMMENT ON COLUMN DIG_GEO.ICONS.SORT_ORDER IS '分类内排序序号';
 COMMENT ON COLUMN DIG_GEO.ICONS.CREATE_TIME IS '创建时间';
 
 -- ============================================================
--- 执行结果核对（只读，不改任何东西；只是把 9 张表的在位情况查出来）
--- 期望看到 9 行：PROJECTS / DATASETS / DATASET_COLUMNS / DATASET_ROWS /
---               LAYERS / WIDGETS / TILE_CONFIG / ICON_CATEGORIES / ICONS
+-- 10. DB_CONNECTIONS — 外部数据源连接配置表
+--     原本只写在 doc/sql/v2-new-tables.sql 里，照本文件建库的新环境会漏掉这张表，
+--     导致 /api/db-connections/* 全部报「无效的表或视图名」，故并入本文件。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS DIG_GEO.DB_CONNECTIONS (
+  CONN_ID       VARCHAR(50)  PRIMARY KEY,
+  CONN_NAME     VARCHAR(200) NOT NULL,
+  DB_TYPE       VARCHAR(50)  NOT NULL,
+  HOST          VARCHAR(200) NOT NULL,
+  PORT          INT          NOT NULL,
+  USERNAME      VARCHAR(200) NOT NULL,
+  PASSWORD      VARCHAR(500) NOT NULL,
+  -- 关系库：模式名/数据库名；Redis：库序号(0-15)，留空按 0
+  SCHEMA_NAME   VARCHAR(200),
+  CREATE_TIME   VARCHAR(50),
+  UPDATE_TIME   VARCHAR(50)
+);
+
+CREATE INDEX IF NOT EXISTS IDX_DB_CONN_NAME ON DIG_GEO.DB_CONNECTIONS(CONN_NAME);
+
+COMMENT ON TABLE DIG_GEO.DB_CONNECTIONS IS '外部数据源连接配置表';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.CONN_ID IS '连接ID (UUID)';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.CONN_NAME IS '连接名称 (用户自定义)';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.DB_TYPE IS '数据源类型: Dameng / Doris / MySQL / PostgreSQL / Redis';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.HOST IS '主机IP地址';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.PORT IS '端口号';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.USERNAME IS '用户名 (Redis 无 ACL 时留空)';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.PASSWORD IS '密码 (内网明文存储)';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.SCHEMA_NAME IS '模式名/数据库名 (Redis 为库序号)';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.CREATE_TIME IS '创建时间 (yyyy-MM-dd HH:mm:ss)';
+COMMENT ON COLUMN DIG_GEO.DB_CONNECTIONS.UPDATE_TIME IS '最后修改时间 (yyyy-MM-dd HH:mm:ss)';
+
+-- 老库升级说明：表若已存在，上面的 CREATE 会跳过、COMMENT 仍会重新打一遍，重复执行无副作用。
+-- 老库里 DB_TYPE 存成 'MySQL' 但实际连的是 Doris 的连接仍可正常使用（二者同走 MySQL 协议），
+-- 只是列表里会显示为 MySQL；需要统一显示时，在页面上把该连接的「数据源类型」重选为 Doris 保存一次即可。
+
+-- ============================================================
+-- 执行结果核对（只读，不改任何东西；只是把 10 张表的在位情况查出来）
+-- 期望看到 10 行：PROJECTS / DATASETS / DATASET_COLUMNS / DATASET_ROWS /
+--               LAYERS / WIDGETS / TILE_CONFIG / ICON_CATEGORIES / ICONS / DB_CONNECTIONS
 -- 少哪张说明那张没建成功，往上翻该表的建表语句看报错。
 -- 若客户端不认识 ALL_TABLES，换成 DBA_TABLES，或直接删掉本段（不影响建表结果）。
 -- ============================================================

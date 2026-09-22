@@ -78,6 +78,15 @@
             <version>42.6.0</version>
         </dependency>
 
+        <!-- Redis 客户端：Redis 数据源不是 JDBC，走 RESP 协议，单独用 Jedis 直连。
+             刻意不引 spring-boot-starter-data-redis——那会带自动配置与健康检查，
+             本服务只把 Redis 当作「按需连接的外部数据源」，不需要容器托管连接工厂。 -->
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>4.4.6</version>
+        </dependency>
+
         <!-- JSON处理 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
