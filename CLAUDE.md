@@ -86,7 +86,7 @@ cd java-server && mvn clean package -DskipTests
 
 ### 数据库（达梦 DM8，schema `DIG_GEO`）
 
-9 张表（`java-server/src/main/resources/schema.sql`）：PROJECTS、DATASETS、DATASET_COLUMNS、DATASET_ROWS、LAYERS、WIDGETS、TILE_CONFIG、ICON_CATEGORIES、ICONS。项目/数据集/图层是自建的核心业务表；数据集数据行存 `DATASET_ROWS.ROW_DATA`（JSON 数组，按下标对应列）。
+10 张表（`java-server/src/main/resources/schema.sql`）：PROJECTS、DATASETS、DATASET_COLUMNS、DATASET_ROWS、LAYERS、WIDGETS、TILE_CONFIG、ICON_CATEGORIES、ICONS、**DB_CONNECTIONS**（数据源连接配置，2026-09 从 `doc/sql/v2-new-tables.sql` 并进来——此前新环境照 `schema.sql` 建库会漏掉它，`/api/db-connections/*` 全报「无效的表或视图名」）。项目/数据集/图层是自建的核心业务表；数据集数据行存 `DATASET_ROWS.ROW_DATA`（JSON 数组，按下标对应列）。
 
 ### 前端页面（website/src/pages）
 
@@ -114,7 +114,18 @@ DataEase 大屏以 iframe 嵌入 `/share/:id` 页面，通过 postMessage 通信
 - **改 `packages/li-*` 后重建：必须 `cd packages/<pkg> && npm run build`，且要看 dist 产物确认**（三个坑，2026-09 实测）：
   1. 根 `lerna run build` 会**命中 Nx 缓存假成功**——exit 0、打印 "Successfully ran target build"，但 `dist` 时间戳没变、新文件根本没生成（伴随 "Invalid Cache Directory ... was not generated on this machine" 警告）。加 `--skip-nx-cache` 又会因依赖包（li-p2/li-sdk）单独构建失败而中断，**所以用包内直连 `cd packages/<pkg> && npm run build` 最稳**。
   2. `.fatherrc.base.ts` 里 `cjs` 只在 `NODE_ENV=production` 时才输出；普通 `npm run build` **只出 `dist/esm`**。website 走 `module` 字段（esm），但 `node_modules` 里的旧 `cjs` 会残留成僵尸——要两种格式都新就 `NODE_ENV=production npm run build`。
-  3. `node_modules/@antv/li-*` 是**独立拷贝（非 symlink）**，构建完必须 `cp -r packages/<pkg>/dist/. node_modules/@antv/<pkg>/dist/` 且 `cp -r packages/<pkg>/src/. node_modules/@antv/<pkg>/src/`，否则 website 打包用的是旧 dist。**验收看 dist 时间戳/新文件，别只看 exit code。**
+  3. ~~`node_modules/@antv/li-*` 是**独立拷贝（非 symlink）**，构建完必须 `cp -r packages/<pkg>/dist/. node_modules/@antv/<pkg>/dist/`~~
+     **【2026-09 更正】这条结论是错的，不要再照着做**：干净 `npm install` 之后，`node_modules/@antv/li-*`
+     是**指向 `packages/*` 的 symlink**（`ls -la node_modules/@antv/ | grep li-` 一眼可见），
+     改包内源码重新 build 后 website 立刻用到新 dist，**中间不需要任何拷贝**。
+     旧结论应来自某个「装了 registry 发布版、又残留另一份拷贝」的环境。
+     真正需要拷贝的只有 `@antv/l7*`（L7 运行时本身），那才是独立安装包。
+     仍然成立的是：**验收看 dist 时间戳/新文件，别只看 exit code**。
+  4. **装依赖必须带 `--legacy-peer-deps`**：`@difizen/weave` 声明 `peerDependencies: antd@3`，
+     而 website 用 antd 5，不带这个参数 npm 10 会直接 ERESOLVE 失败。
+     `~/.npm` 不可写时（沙箱/CI）加 `npm_config_cache=<仓库内目录>`。
+     *（2026-09 实测三步跑通：`npm install --legacy-peer-deps` → `npm run build:package` → `npm run build:website`；
+     build:package 会同时产出 esm 与 cjs（带 declaration），当场没有再出现上面第 1 条的 Nx 假成功。）*
 - 部署见 `offline-deploy/README.md`（单容器：Java 内置、前端静态内嵌在 jar 里，不需要独立 nginx）。
   `DEPLOY.md`（老的 Docker 双容器方案，对应已删除的 `deploy/`）已废弃，只作历史参考。
 
@@ -237,7 +248,9 @@ DataEase 大屏以 iframe 嵌入 `/share/:id` 页面，通过 postMessage 通信
 **关键实现要点 / 坑**：
 - `IconImageLayer.loadIconAtlas()`（`@antv/l7-composite-layers`）以 **`iconAtlas` 的 key 作为 `scene.addImage(imageName, url)` 的注册名**，主图标子图层 `shape` 直接取 `icon` 值。→ **固定图标模式下 `icon` 的值必须是某个已注册的图集 key**，否则匹配不上会回退成 L7 默认圆点。`Component.tsx` 的 `normalizeIconLayerProps` 负责收敛：固定串丢失扩展名（如存 `.../xxx` 而图集 key 是 `.../xxx.png`）时按前缀匹配到真实 URL 并以 shape 名注册；基于字段 `_iconUrl` 时给聚合节点补 `scale.unknown`（取真实可加载 URL，勿用会 404 的 `/icons/default-icon.svg`）。
 - 「数量文本看不见」多为**对比度**问题：深色底图 + 深绿聚合圆上深灰 `#3b3b3b` 无描边=隐形。`index.tsx` `defaultVisConfig` 的 dot 文本已加 `stroke:'#ffffff', strokeWidth:1`；`Component.tsx` dot 路径另做运行时兜底（`label.style` 无任何描边定义时补白描边），以覆盖**历史保存的旧配置**——注意 li-sdk `useLayerProps` 把已存 `visConfig` 直传组件（**不会**与 `defaultVisConfig` 深合并），故改 `defaultVisConfig` 只对新建图层生效，旧项目须靠运行时兜底。
-- **改 li-core-assets 后必须重建并同步进 `node_modules/@antv/li-core-assets`**（该目录是独立拷贝、非 symlink，website 解析它）：`cd packages/li-core-assets && npm run build` → `cp -r packages/li-core-assets/dist/. node_modules/@antv/li-core-assets/dist/` 且 `cp -r packages/li-core-assets/src/. node_modules/@antv/li-core-assets/src/`，再 `build:website` → 拷 static → 打 jar。
+- **改 li-core-assets 后重建即可，不需要往 `node_modules` 拷贝**（`node_modules/@antv/li-core-assets` 是指向
+  `packages/li-core-assets` 的 **symlink**，见上文「改 packages/li-* 后重建」第 3 条的更正）：
+  `npm run build:package`（或 `cd packages/li-core-assets && npm run build`）→ `npm run build:website` → 拷 static → 打 jar。
 
 **遗留问题（2026-09 未完全解决，待续）**：
 1. **切图标后仍出现聚合圆点**：已按上述 `normalizeIconLayerProps` 修（当时活项目保存的固定图标 `icon` 为无 `.png` 的 URL、`iconAtlas` key 为带 `.png`），**待打包后运行时验收**是否彻底消失。
@@ -478,6 +491,25 @@ YAML 改完**要重新导入 Dify**；本文件这一节也应同步。
   *以上 env 名解析未在真实容器里实测过，所以带连字符的一律建议避开。*
 - **env 不比文件安全**：`docker inspect` / `docker compose config` 都能明文看到环境变量，容器内所有进程也都读得到；
   挂载的 properties 同样是明文。别以为放 env 更安全——真正敏感的只有达梦口令，怎么放取决于运维习惯。
+
+## 数据源连接 / 地图刷新 / 图标转向（2026-09 新增）
+
+这三块（MySQL/PostgreSQL/Redis 数据源、地图按间隔刷新、图标按字段转向）的**完整说明见
+`doc/DATASOURCE_AND_REFRESH.md`** —— 细节较多，为不挤占本文件（已顶到工作区指令注入的字节上限）而单独成文。
+改动前请先读那份文档，几个最容易踩的点先记在这里：
+
+- **数据源类型元信息只有后端一处真值**：`GET /api/db-connections/supported-types`
+  （类型值/默认端口/字段叫法/**操作提示文案**），前端只渲染。加类型改 `DbConnectionService` 一处。
+  规范类型名 5 个：`Dameng` / `Doris` / `MySQL` / `PostgreSQL` / `Redis`。
+- **Redis 不是 JDBC，是 `RedisSourceSupport` 里的平行实现**：「表列表」= 键族（`aircraft:*`）、
+  「表名」= 键 glob 模式、「一行」= 一个键或成员；必须 SCAN 不能用 KEYS。
+  值还原 `coerceScalar` 错了会让经纬度列被判成 string（**图上直接不出点**）。
+- **PostgreSQL 的 `schemaName` 字段装的是数据库名**（连接串必须带库名）；catalog/schema 是两层，别混。
+  MySQL/Doris 必须用 catalog 传库名、schemaPattern 传 null。
+- **地图刷新的唯一真值是 `metadata.refreshInterval`（秒）**，li-editor 与 **li-sdk 两边都要认**——
+  后者（`useRemoteDataset.ts`）2026-09 才补上，缺了它「配好的地图」在预览页/嵌入页不会刷新。
+- **图标转向只存字段名** `visConfig.iconRotationField`，角度归一化在
+  `li-core-assets/src/layers/icon-rotation.ts`（360/非数值一律回落到 0，因为上游用它当哨兵值）。
 
 ## 文档
 
